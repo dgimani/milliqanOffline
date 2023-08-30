@@ -33,7 +33,9 @@ void trigger_bit_validation_2()
 	std::vector<float> *duration = 0;
 	
 	std::vector<std::vector<int>> overlappingHits;
-    std::vector<int> vec;
+    	std::vector<int> vec;
+	std::vector<int> trig1_coincidence_satisfying_comb;
+	std::vector<int> trig2_coincidence_satisfying_comb;
 
 	//Setting branch addresses
 	//t1->SetBranchAddress("runNumber",&runNumber);
@@ -50,15 +52,15 @@ void trigger_bit_validation_2()
 	t1->SetBranchAddress("duration",&duration);
 
 	//Offline triggers
-    bool fourLayersHit = false;
-    bool threeInRow = false; 
-    bool twoSeparatedLayers = false;
-    bool twoAdjacentLayers = false;
-    bool NLayersHit = false;
-    bool gtNHits = false;
-    bool topPanels = false;
-    bool topPanels_plus_BottomBars = false;
-    bool front_back_panels = false;
+    	bool fourLayersHit = false;
+    	bool threeInRow = false; 
+    	bool twoSeparatedLayers = false;
+    	bool twoAdjacentLayers = false;
+    	bool NLayersHit = false;
+    	bool gtNHits = false;
+    	bool topPanels = false;
+    	bool topPanels_plus_BottomBars = false;
+    	bool front_back_panels = false;
 
 
     //Online triggers
@@ -126,18 +128,24 @@ void trigger_bit_validation_2()
     h_trigger_rates_on->SetName("Online");
     h_trigger_rates_on->SetName("Offline");
 
-    std::ofstream onlineFile("onlineTrig1Evts.txt");
-    onlineFile << "Run 1116, file 1, trigger 1 events" << std::endl;
-    std::ofstream offlineFile("offlineTrig1Evts.txt");
-    offlineFile << "Run 1116, file 1, trigger 1 events" << std::endl;
-
+    
+    std::ofstream onlineFile1("onlineTrig1Evts.txt");
+    onlineFile1 << "Run 1116, file 1, trigger 1 events" << std::endl;
+    std::ofstream offlineFile1("offlineTrig1Evts.txt");
+    offlineFile1 << "Run 1116, file 1, trigger 1 events" << std::endl;
+    std::ofstream onlineFile2("onlineTrig2Evts.txt");
+    onlineFile2 << "Run 1116, file 1, trigger 2 events" << std::endl;
+    std::ofstream offlineFile2("offlineTrig2Evts.txt");
+    offlineFile2 << "Run 1116, file 1, trigger 2 events" << std::endl;
+    
 
 
     //Begin loop over number of events
-    for (Int_t i=0;i<nentries1;i++)      
+    for (Int_t ievent =0;ievent<nentries1;ievent++)      
+    //for(Int_t ievent = 55; ievent < 56; ievent++)
     {
-       
-    	t1->GetEntry(i);
+
+    	t1->GetEntry(ievent);
     	if(chan == nullptr || chan->empty())
     	{
     		continue;
@@ -177,10 +185,10 @@ void trigger_bit_validation_2()
 
     	//Other variables of interest
         layer0hit = false;
-		layer1hit = false;
-		layer2hit = false;
-		layer3hit = false;
-		threeLayersHit = false;
+	layer1hit = false;
+	layer2hit = false;
+	layer3hit = false;
+	threeLayersHit = false;
     	nHits = layer->size();
         bool goodHits[nHits];
     	for(int i = 0; i < nHits; i++) goodHits[i] = false;
@@ -190,8 +198,9 @@ void trigger_bit_validation_2()
     	pulse_i_end = 0; pulse_j_end = 0; pulse_k_end = 0; pulse_l_end = 0;
     	deltaT = 0; window = 0;
     	overlappingHits.clear();
+	trig1_coincidence_satisfying_comb.clear();
+	trig2_coincidence_satisfying_comb.clear();
 
-        if(tTrigger == -1) continue;
         std::bitset<13> binaryTrigger(tTrigger);
         for(int i = 0; i < 13; i++)
         {
@@ -199,8 +208,8 @@ void trigger_bit_validation_2()
             {
                 h_trigger_rates_on->Fill(i+1);
                 
-                if(i+1 == 1) {trig1 = true; nTrig1_online++; onlineFile << "event " << event << std::endl;}
-                if(i+1 == 2) {trig2 = true;nTrig2_online++;}
+                if(i+1 == 1) {trig1 = true; nTrig1_online++; onlineFile1  << event << std::endl;}
+                if(i+1 == 2) {trig2 = true;nTrig2_online++; onlineFile2   << event << std::endl;}
                 if(i+1 == 3) {trig3 = true;nTrig3_online++;}
                 if(i+1 == 4) {trig4 = true;nTrig4_online++;}
                 if(i+1 == 5) {trig5 = true;nTrig5_online++;}
@@ -220,40 +229,43 @@ void trigger_bit_validation_2()
 
     	//====Marking good channels for the entire event====
     	for(size_t j = 0; j < nHits; ++j)
-		{
+	{
 
-			//goodChan = false;
-			//Takes channel mismapping into account. Remove once fixed.
-			if((*chan)[j] == 78) {(*chan)[j] = 24; (*layer)[j] = 1;(*row)[j] = 0;(*column)[j] = 1;}  
-			if((*chan)[j] == 79) {(*chan)[j] = 25; (*layer)[j] = 1;(*row)[j] = 1;(*column)[j] = 1;}
-
-
-			//Ensure that the online pulse height actually passed trigger requirement and it is a bar
-			vMax_online = (*height)[j] + (*dynamicPedestal)[(*chan)[j]];
-			if(vMax_online >= 15 && (*chan)[j] <= 63 && (*chan)[j] >= 0) goodHits[j] = true;       
-		} 
+		//goodChan = false;
+		//Takes channel mismapping into account. Remove once fixed.
+		if((*chan)[j] == 78) {(*chan)[j] = 24; (*layer)[j] = 1;(*row)[j] = 1;(*column)[j] = 0;}  
+		if((*chan)[j] == 79) {(*chan)[j] = 25; (*layer)[j] = 1;(*row)[j] = 1;(*column)[j] = 1;}
 
 
+		//Ensure that the online pulse height actually passed trigger requirement and it is a bar
+		vMax_online = (*height)[j] + (*dynamicPedestal)[(*chan)[j]];
+		//std::cout << "chan " << (*chan)[j] << " time " << (*time)[j] << "vMax_online " << vMax_online << std::endl;
+		if(vMax_online >= 15 && (*chan)[j] <= 63 && (*chan)[j] >= 0) goodHits[j] = true;       
+		//if((*chan)[j] <= 63 && (*chan)[j] >= 0) goodHits[j] = true; 
+	} 
+
+
+	//std::cout << "Event " << event << std::endl;
 
         //Finding pulses in coincidence window
         for(int i = 0; i < nHits; ++i)
         {
-
-            if(goodHits[i] == 0) continue;
-            vec.clear();
-            vec.push_back(i);
-            firstPulseStart = (*time)[i];
-            window = 260;
-            /*
+	    vec.clear();
+	    if(goodHits[i] == 0) {overlappingHits.push_back(vec); continue;}
+	    vec.push_back(i);
+	    firstPulseStart = (*time)[i];
+            //window = 160 + (*duration)[i];
+            window = 288; //100ns from first pulse plus 160ns coincident time window            
+	    
             std::cout<<" ---------New combination check -------" <<std::endl;
             std::cout << "chan " << (*chan)[i] << std::endl;
             std::cout << "time " << (*time)[i] << std::endl;
             std::cout << "height " << (*height)[i] << std::endl;
             std::cout << "duration " << (*duration)[i] << std::endl;
             std::cout << "window " << window << std::endl;
-            std::cout << " -- Possible combinations ---"<<endl;
-            */
-
+            std::cout << "goodHit: " << goodHits[i] << std::endl;
+	    std::cout << " -- Possible combinations ---"<<endl;
+            
             for(int j = 0; j < nHits; ++j)
             {
                 if(i==j) continue;
@@ -265,13 +277,14 @@ void trigger_bit_validation_2()
                 lastPulseStart = (*time)[j];
                 deltaT = lastPulseStart - firstPulseStart;
 
-                /*
+                
                 std::cout << (*chan)[j] << std::endl;
                 std::cout << (*time)[j] << std::endl;
                 std::cout << (*height)[j] << std::endl;
                 std::cout << (*duration)[j] << std::endl;
-                std::cout << "deltaT " << deltaT << std::endl;
-                */
+		std::cout << goodHits[j] << std::endl;
+		std::cout << "deltaT " << deltaT << std::endl;
+                
                 
                 if(deltaT < 0 || deltaT > window) continue;
 
@@ -293,9 +306,13 @@ void trigger_bit_validation_2()
             layer2hit = false;
             layer3hit = false;
             layerCount = 0;
-            for(int j = 0; j < overlappingHits[i].size(); ++j)  //Looping over hits within a given set that fall within 160ns window
+	    //std::cout << std::endl;
+            //std::cout << "time " << (*time)[i] << std::endl;
+	    //std::cout << "overlappingHits " << "goodHit" << std::endl;
+	    for(int j = 0; j < overlappingHits[i].size(); ++j)  //Looping over hits within a given set that fall within 160ns window
             {
-                
+
+                //std::cout << (*chan)[overlappingHits[i][j]] << " " << goodHits[overlappingHits[i][j]] << std::endl;
 
 
                 //==========Checking first trigger logic===========
@@ -303,7 +320,7 @@ void trigger_bit_validation_2()
                 if((*layer)[overlappingHits[i][j]] == 1 && goodHits[overlappingHits[i][j]]) layer1hit = true;   
                 if((*layer)[overlappingHits[i][j]] == 2 && goodHits[overlappingHits[i][j]]) layer2hit = true;
                 if((*layer)[overlappingHits[i][j]] == 3 && goodHits[overlappingHits[i][j]]) layer3hit = true;
-                if(layer0hit && layer1hit && layer2hit && layer3hit) fourLayersHit = true;
+                if(layer0hit && layer1hit && layer2hit && layer3hit) {fourLayersHit = true;trig1_coincidence_satisfying_comb.push_back(i);}
 
 
                 //==========Checking second trigger logic===========
@@ -326,6 +343,7 @@ void trigger_bit_validation_2()
                                     if( (((*column)[overlappingHits[i][k]]/2) == (*column)[overlappingHits[i][l]]/2) && ((*row)[overlappingHits[i][k]] == (*row)[overlappingHits[i][l]]))
                                     {
                                         threeInRow = true; //All three in same group
+					trig2_coincidence_satisfying_comb.push_back(i);
                                     }
                                 }
                             }
@@ -361,7 +379,7 @@ void trigger_bit_validation_2()
                 }
 
                 //==========Checking eleventh trigger logic========
-                if((*chan)[overlappingHits[i][j]] == 71)
+                if((*chan)[overlappingHits[i][j]] == 74)
                 {
                     for(int k = 0; k < overlappingHits[i].size(); ++k)
                     {
@@ -369,14 +387,16 @@ void trigger_bit_validation_2()
                     }
                 }
             }
-        }
+	//if(fourLayersHit == true){trig1_coincidence_satisfying_comb.push_back(i);}
+        //if(threeInRow == true){trig2_coincidence_satisfying_comb.push_back(i);}
+	}
             
 
 
         
 
-    	if(fourLayersHit) {nTrig1_offline++; h_trigger_rates_off->Fill(1); offlineFile << "event " << event << std::endl;}
-        if(threeInRow) {nTrig2_offline++; h_trigger_rates_off->Fill(2);}
+    	if(fourLayersHit) {nTrig1_offline++; h_trigger_rates_off->Fill(1); offlineFile1 << "event " << event << std::endl;}
+        if(threeInRow) {nTrig2_offline++; h_trigger_rates_off->Fill(2); offlineFile2 << "event " << event << std::endl;}
         if(twoSeparatedLayers) {nTrig3_offline++;h_trigger_rates_off->Fill(3);}
         if(twoAdjacentLayers) {nTrig4_offline++;h_trigger_rates_off->Fill(4);}
         if(NLayersHit) {nTrig5_offline++; h_trigger_rates_off->Fill(5);}
@@ -385,23 +405,110 @@ void trigger_bit_validation_2()
         if(topPanels_plus_BottomBars) {nTrig10_offline++;h_trigger_rates_off->Fill(10);}
         if(front_back_panels) {nTrig11_offline++;h_trigger_rates_off->Fill(11);}
 
+	if(trig1 && trig2 && fourLayersHit && threeInRow)
+	{
+		std::cout << "Event with both trig1 and trig2 found online and offline: " << event << std::endl;	
+		for(int i = 0; i < trig1_coincidence_satisfying_comb.size(); i++) //Looping over indices of combs that satisfy trig1
+                {
+                        std::cout << "Combination " << i << " satisfying fourLayersHit logic." << std::endl;
+                        std::cout << "First pulse channel: " << (*chan)[overlappingHits[trig1_coincidence_satisfying_comb[i]].front()] << std::endl;
+                        std::cout << "First pulse start time: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]].front()] << std::endl;
+                        std::cout << "Last pulse start time: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]].back()] << std::endl;
+                        std::cout << "Last pulse end time: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]].back()] + (*duration)[overlappingHits[trig1_coincidence_satisfying_comb[i]].back()] << std::endl;
+                	
+		/*
+                for(int j = 0; j < overlappingHits[trig1_coincidence_satisfying_comb[i]].size(); j++) //Looping over pulses in coincident window
+                {       
+                        std::cout << "Time of pulses in trig1 combo: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]][j]] << std::endl;
+                }*/
+                }
+                std::cout << " " << std::endl;
+                for(int i = 0; i < trig2_coincidence_satisfying_comb.size(); i++) //Looping over indices of combs that satisfy trig1
+                {
+                        std::cout << "Combination " << i << " satisfying threeInRow logic." << std::endl;
+                        std::cout << "First pulse channel: " << (*chan)[overlappingHits[trig2_coincidence_satisfying_comb[i]].front()] << std::endl;
+                        std::cout << "First pulse start time: " << (*time)[overlappingHits[trig2_coincidence_satisfying_comb[i]].front()] << std::endl;
+                        std::cout << "Last pulse start time: " << (*time)[overlappingHits[trig2_coincidence_satisfying_comb[i]].back()] << std::endl;
+                        std::cout << "Last pulse end time: " << (*time)[overlappingHits[trig2_coincidence_satisfying_comb[i]].back()] + (*duration)[overlappingHits[trig2_coincidence_satisfying_comb[i]].back()] << std::endl;
+                }		
+
+	}
+	if(!trig1 && trig2 && fourLayersHit && threeInRow)
+	{
+		std::cout << "Event with trig1 failing online and trig2 passing online, with both found offline: " << event << std::endl;
+		
+		for(int i = 0; i < trig1_coincidence_satisfying_comb.size(); i++) //Looping over indices of combs that satisfy trig1
+		{
+			std::cout << "Combination " << i << " satisfying fourLayersHit logic." << std::endl;
+			std::cout << "First pulse channel: " << (*chan)[overlappingHits[trig1_coincidence_satisfying_comb[i]].front()] << std::endl;
+			std::cout << "First pulse start time: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]].front()] << std::endl;
+			std::cout << "Last pulse start time: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]].back()] << std::endl;
+			std::cout << "Last pulse end time: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]].back()] + (*duration)[overlappingHits[trig1_coincidence_satisfying_comb[i]].back()] << std::endl; 
+		/*
+		for(int j = 0; j < overlappingHits[trig1_coincidence_satisfying_comb[i]].size(); j++) //Looping over pulses in coincident window
+		{	
+			std::cout << "Time of pulses in trig1 combo: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]][j]] << std::endl;
+		}*/
+		}
+		std::cout << " " << std::endl;
+		for(int i = 0; i < trig2_coincidence_satisfying_comb.size(); i++) //Looping over indices of combs that satisfy trig1
+                {
+                        std::cout << "Combination " << i << " satisfying threeInRow logic." << std::endl;
+                        std::cout << "First pulse channel: " << (*chan)[overlappingHits[trig2_coincidence_satisfying_comb[i]].front()] << std::endl;
+                        std::cout << "First pulse start time: " << (*time)[overlappingHits[trig2_coincidence_satisfying_comb[i]].front()] << std::endl;
+                        std::cout << "Last pulse start time: " << (*time)[overlappingHits[trig2_coincidence_satisfying_comb[i]].back()] << std::endl;
+                        std::cout << "Last pulse end time: " << (*time)[overlappingHits[trig2_coincidence_satisfying_comb[i]].back()] + (*duration)[overlappingHits[trig2_coincidence_satisfying_comb[i]].back()] << std::endl;
+                }
+	}
+	if(trig1 && !trig2 && fourLayersHit && threeInRow)
+        {
+                std::cout << "Event with trig1 passing online and trig2 failing online, with both found offline: " << event << std::endl;
+        	for(int i = 0; i < trig1_coincidence_satisfying_comb.size(); i++) //Looping over indices of combs that satisfy trig1
+                {
+                        std::cout << "Combination " << i << " satisfying fourLayersHit logic." << std::endl;
+                        std::cout << "First pulse channel: " << (*chan)[overlappingHits[trig1_coincidence_satisfying_comb[i]].front()] << std::endl;
+                        std::cout << "First pulse start time: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]].front()] << std::endl;
+                        std::cout << "Last pulse start time: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]].back()] << std::endl;
+                        std::cout << "Last pulse end time: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]].back()] + (*duration)[overlappingHits[trig1_coincidence_satisfying_comb[i]].back()] << std::endl;
+                /*
+                for(int j = 0; j < overlappingHits[trig1_coincidence_satisfying_comb[i]].size(); j++) //Looping over pulses in coincident window
+                {       
+                        std::cout << "Time of pulses in trig1 combo: " << (*time)[overlappingHits[trig1_coincidence_satisfying_comb[i]][j]] << std::endl;
+                }*/
+                }
+                std::cout << " " << std::endl;
+                for(int i = 0; i < trig2_coincidence_satisfying_comb.size(); i++) //Looping over indices of combs that satisfy trig1
+                {
+                        std::cout << "Combination " << i << " satisfying threeInRow logic." << std::endl;
+                        std::cout << "First pulse channel: " << (*chan)[overlappingHits[trig2_coincidence_satisfying_comb[i]].front()] << std::endl;
+                        std::cout << "First pulse start time: " << (*time)[overlappingHits[trig2_coincidence_satisfying_comb[i]].front()] << std::endl;
+                        std::cout << "Last pulse start time: " << (*time)[overlappingHits[trig2_coincidence_satisfying_comb[i]].back()] << std::endl;
+                        std::cout << "Last pulse end time: " << (*time)[overlappingHits[trig2_coincidence_satisfying_comb[i]].back()] + (*duration)[overlappingHits[trig2_coincidence_satisfying_comb[i]].back()] << std::endl;
+                }
+	}
+
+
+	//Check online/offline mismatch
     	/*
     	if(fourLayersHit != trig1)
     	{
     		std::cout << " " << std::endl;
     		std::cout << "Potential trigger1 mistake at event "<< event << std::endl;
     		std::cout << "trig1 = " << trig1 << " fourLayersHit = " << fourLayersHit << std::endl;
-    		std::cout << "layer0hit " << layer0hit << " layer1hit " << layer1hit << " layer2hit " << layer2hit << " layer3hit " << layer3hit << std::endl;
+    		//std::cout << "layer0hit " << layer0hit << " layer1hit " << layer1hit << " layer2hit " << layer2hit << " layer3hit " << layer3hit << std::endl;
 
+		
     		for(size_t j = 0; j < nHits; ++j)
-			{
-				std::cout << "chan: " << (*chan)[j] << std::endl;
-                std::cout << "vMax_online = vMax_offline + dynamicPedestal = " << (*height)[j] << " + " << (*dynamicPedestal)[(*chan)[j]] << " = " << (*height)[j] + (*dynamicPedestal)[(*chan)[j]] << std::endl;
-				//std::cout << "time: " << (*time)[j] << std::endl;
-			}
-    	}
-    	*/
+		{
+			std::cout << "chan: " << (*chan)[j] << std::endl;
+        	        std::cout << "vMax_online = vMax_offline + dynamicPedestal = " << (*height)[j] << " + " << (*dynamicPedestal)[(*chan)[j]] << " = " << (*height)[j] + (*dynamicPedestal)[(*chan)[j]] << std::endl;
+			std::cout << "time: " << (*time)[j] << std::endl;
+		}
+		
+    	}*/
+    	
 		//=================================================
+
 
 
 
@@ -411,7 +518,13 @@ void trigger_bit_validation_2()
                 std::cout << "Potential trigger2 mistake at event "<< event << std::endl;
                 std::cout << "trig2 = " << trig2 << " threeInRow = " << threeInRow << std::endl;
                 std::cout << "threeLayersHit " << threeLayersHit << std::endl;
-                std::cout << "layer0hit " << layer0hit << " layer1hit " << layer1hit << " layer2hit " << layer2hit << " layer3hit " << layer3hit << std::endl;
+                //std::cout << "layer0hit " << layer0hit << " layer1hit " << layer1hit << " layer2hit " << layer2hit << " layer3hit " << layer3hit << std::endl;
+		for(size_t j = 0; j < nHits; ++j)
+                {
+                        std::cout << "chan: " << (*chan)[j] << std::endl;
+                        std::cout << "vMax_online = vMax_offline + dynamicPedestal = " << (*height)[j] << " + " << (*dynamicPedestal)[(*chan)[j]] << " = " << (*height)[j] + (*dynamicPedestal)[(*chan)[j]] << std::endl;
+                        std::cout << "time: " << (*time)[j] << std::endl;
+                }
         }
         */
     	//=================================================
@@ -515,6 +628,7 @@ void trigger_bit_validation_2()
     	//=================================================
 
 
+	
 
 
 
@@ -577,5 +691,6 @@ c1->SaveAs("trigger_hist.png");
 
 
 }
+
 
 
