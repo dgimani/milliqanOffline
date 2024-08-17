@@ -12,7 +12,7 @@ stop = 1000   #Set the number of files to run on
 
 
 
-branches = tree.arrays(["time","height","area","row","column","layer","duration","chan"],entry_stop=stop)
+branches = tree.arrays(["time","height","area","row","column","layer","duration","chan","type"],entry_stop=stop)
 
 #Fix mislabeled channels
 chan_mask78 = (branches["chan"] == 78)
@@ -56,6 +56,7 @@ pulses = ak.zip(
         "column": height_cut["column"],
         "layer": height_cut["layer"],
         "duration": height_cut["duration"],
+        "type": height_cut["type"],
     }
 )
 
@@ -69,10 +70,13 @@ pulse1, pulse2 = ak.unzip(pairs)
 window = 150
 timemask = np.abs(pulse1.time - pulse2.time) < window
 
+#Useful for later
+layerdiff = np.abs(pulse1.layer - pulse2.layer)
+
 #============================Four layers offline========================================
 #Form a mask to require that the paired pulses are not in the same layer and aren't panels. We don't care about those combinations anyway and removing them speeds things up.
-layermask = pulse1.layer != pulse2.layer
-not_panels = (pulse1.chan < 64) & (pulse2.chan < 64)
+layermask = layerdiff != 0   #pulse1.layer != pulse2.layer
+not_panels = (pulse1["type"] == 0) & (pulse2["type"] == 0) 
 
 pulse1_filtered = pulse1[timemask & layermask & not_panels]
 pulse2_filtered = pulse2[timemask & layermask & not_panels]
@@ -170,14 +174,22 @@ same_row134 =  ((pair1_pulse1.row == pair2_pulse1.row) &
            (pair1_pulse1.row == pair2_pulse2.row))
 
 #There are four ways to be in the same trigger group (column pairs). Once again cand1 and cand2 already are as are cand3 and cand4.
-same_cols123 = (((pair1_pulse1.column == pair2_pulse1.column) | (pair1_pulse1.column == pair2_pulse1.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse1.column)) & (((pair1_pulse1.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse1.column != 1))) &
-                ((pair1_pulse2.column == pair2_pulse1.column) | (pair1_pulse2.column == pair2_pulse1.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse1.column)) & (((pair1_pulse2.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse1.column != 1))))
-same_cols124 = (((pair1_pulse1.column == pair2_pulse2.column) | (pair1_pulse1.column == pair2_pulse2.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse2.column)) & (((pair1_pulse1.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse2.column != 1))) &
-                ((pair1_pulse2.column == pair2_pulse2.column) | (pair1_pulse2.column == pair2_pulse2.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse2.column)) & (((pair1_pulse2.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse2.column != 1))))
-same_cols234 = (((pair1_pulse2.column == pair2_pulse1.column) | (pair1_pulse2.column == pair2_pulse1.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse1.column)) & (((pair1_pulse2.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse1.column != 1))) &
-                ((pair1_pulse2.column == pair2_pulse2.column) | (pair1_pulse2.column == pair2_pulse2.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse2.column)) & (((pair1_pulse2.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse2.column != 1))))
-same_cols134 = (((pair1_pulse1.column == pair2_pulse1.column) | (pair1_pulse1.column == pair2_pulse1.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse1.column)) & (((pair1_pulse1.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse1.column != 1))) &
-                ((pair1_pulse1.column == pair2_pulse2.column) | (pair1_pulse1.column == pair2_pulse2.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse2.column)) & (((pair1_pulse1.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse2.column != 1))))
+same_cols123 = (((pair1_pulse1.column == pair2_pulse1.column) | (pair1_pulse1.column == pair2_pulse1.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse1.column)) & 
+                (((pair1_pulse1.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse1.column != 1))) &
+                ((pair1_pulse2.column == pair2_pulse1.column) | (pair1_pulse2.column == pair2_pulse1.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse1.column)) & 
+                (((pair1_pulse2.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse1.column != 1))))
+same_cols124 = (((pair1_pulse1.column == pair2_pulse2.column) | (pair1_pulse1.column == pair2_pulse2.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse2.column)) & 
+                (((pair1_pulse1.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse2.column != 1))) &
+                ((pair1_pulse2.column == pair2_pulse2.column) | (pair1_pulse2.column == pair2_pulse2.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse2.column)) & 
+                (((pair1_pulse2.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse2.column != 1))))
+same_cols234 = (((pair1_pulse2.column == pair2_pulse1.column) | (pair1_pulse2.column == pair2_pulse1.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse1.column)) & 
+                (((pair1_pulse2.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse1.column != 1))) &
+                ((pair1_pulse2.column == pair2_pulse2.column) | (pair1_pulse2.column == pair2_pulse2.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse2.column)) & 
+                (((pair1_pulse2.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse2.column != 1))))
+same_cols134 = (((pair1_pulse1.column == pair2_pulse1.column) | (pair1_pulse1.column == pair2_pulse1.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse1.column)) & 
+                (((pair1_pulse1.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse1.column != 1))) &
+                ((pair1_pulse1.column == pair2_pulse2.column) | (pair1_pulse1.column == pair2_pulse2.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse2.column)) & 
+                (((pair1_pulse1.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse2.column != 1))))
 
 #We now have four possible candidate three in row combinations, we take the OR of them to allow any of them to be true
 trig2cand1 = time_123 & diff_layer123 & same_row123 & same_cols123
@@ -188,10 +200,38 @@ threeInRow_mask = trig2cand1 | trig2cand2 | trig2cand3 | trig2cand4
 
 offline_trig2_events = event[ak.any(threeInRow_mask,axis=1)]
 
-#========================================================================================
+#============================Two separated layers========================================
+nonadjacent = layerdiff > 1
+twoSeparatedLayers_mask = nonadjacent & not_panels & timemask
+offline_trig3_events = event[ak.any(twoSeparatedLayers_mask,axis=1)]
 
+#============================Two adjacent layers=========================================
+adjacent = layerdiff == 1
+twoAdjacentLayers_mask = adjacent & not_panels & timemask
+offline_trig4_events = event[ak.any(twoAdjacentLayers_mask,axis=1)]
 
+#============================N Layers Hit================================================
+nLayers = np.array([len(np.unique(row)) for row in ak.to_list(pulses.layer[pulses["type"] == 0 ])])
+nLayers_mask = nLayers >= 3
+offline_trig5_events = event[nLayers_mask]
 
+#============================Greater than N Hits=========================================
+numPulses = ak.num(pulses)
+nHit = 3
+gtNHits_mask = numPulses >= nHit + 1
+offline_trig7_events = event[gtNHits_mask]
+
+#============================Top Panels==================================================
+topPanels_mask = ak.any(pulses.row == 4,axis=1)
+offline_trig9_events = event[topPanels_mask]
+
+#============================Top Panels + Bottom Bars====================================
+topPanelsBotBars_mask = ak.any(pulses.row == 4,axis=1) & ak.any( (pulses.row == 0) & (pulses["type"] == 0),axis=1)
+offline_trig10_events = event[topPanelsBotBars_mask]
+
+#============================Front/Back Panels==================================================
+frontBack_mask = ak.any(pulses.layer == -1, axis=1) & ak.any(pulses.layer == 4, axis=1)
+offline_trig11_events = event[frontBack_mask]
 
 
 
@@ -221,7 +261,21 @@ online_trig13_events = event[np.array([i for i, bit in enumerate(triggerbits) if
 print("Number of offline trig1 events ",len(offline_trig1_events))
 print("Number of online trig1 events ",len(online_trig1_events))
 print("Number of offline trig2 events",len(offline_trig2_events))
-print("Number of online trig2 events ",len(online_trig2_events),"\n")
+print("Number of online trig2 events ",len(online_trig2_events))
+print("Number of offline trig3 events ",len(offline_trig3_events))
+print("Number of online trig3 events ",len(online_trig3_events))
+print("Number of offline trig4 events",len(offline_trig4_events))
+print("Number of online trig4 events ",len(online_trig4_events))
+print("Number of offline trig5 events ",len(offline_trig5_events))
+print("Number of online trig5 events ",len(online_trig5_events))
+print("Number of offline trig7 events",len(offline_trig7_events))
+print("Number of online trig7 events ",len(online_trig7_events))
+print("Number of offline trig9 events",len(offline_trig9_events))
+print("Number of online trig9 events ",len(online_trig9_events))
+print("Number of offline trig10 events",len(offline_trig10_events))
+print("Number of online trig10 events ",len(online_trig10_events))
+print("Number of offline trig11 events",len(offline_trig11_events))
+print("Number of online trig11 events ",len(online_trig11_events),"\n")
 print("Offline trig1 events that are not found online ",ak.to_list(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events,invert=True)]))
 print("Offline trig2 events that are not found online ",ak.to_list(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events,invert=True)]))
 print("Online trig1 events that are not found offline ",ak.to_list(online_trig1_events[np.isin(online_trig1_events,offline_trig1_events,invert=True)]))
