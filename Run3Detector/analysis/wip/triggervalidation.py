@@ -68,7 +68,7 @@ pulse1, pulse2 = ak.unzip(pairs)
 
 #Form a mask for pulses within 150ns of each other. This mask will cut down on the combinatorics.
 window = 150
-timemask = np.abs(pulse1.time - pulse2.time) < window
+timemask = np.abs(pulse1.time - pulse2.time) <= window
 
 #Useful for later
 layerdiff = np.abs(pulse1.layer - pulse2.layer)
@@ -250,34 +250,38 @@ online_trig11_events = event[np.array([i for i, bit in enumerate(triggerbits) if
 #online_trig12_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-12] == '1'])]
 online_trig13_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-13] == '1'])]
 
-
-
+#Offline efficiency = Offline and Online / Number offline
+eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),4))
+eff2 = str(round(len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])/len(offline_trig2_events),4))
+eff3 = str(round(len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])/len(offline_trig3_events),4))
+eff4 = str(round(len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])/len(offline_trig4_events),4))
+eff5 = str(round(len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])/len(offline_trig5_events),4))
+eff7 = str(round(len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])/len(offline_trig7_events),4))
+eff9 = str(round(len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])/len(offline_trig9_events),4))
+eff10 = str(round(len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])/len(offline_trig10_events),4))
+eff11 = str(round(len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])/len(offline_trig11_events),4))
 
 #print("Offline trig1 events ",ak.to_list(offline_trig1_events),"\n")
 #print("Online trig1 events",ak.to_list(online_trig1_events),"\n")
 #print("Offline trig2 events",ak.to_list(offline_trig2_events),"\n")
 #print("Online trig2 events",ak.to_list(online_trig2_events),"\n")
 
-print("Number of offline trig1 events ",len(offline_trig1_events))
-print("Number of online trig1 events ",len(online_trig1_events))
-print("Number of offline trig2 events",len(offline_trig2_events))
-print("Number of online trig2 events ",len(online_trig2_events))
-print("Number of offline trig3 events ",len(offline_trig3_events))
-print("Number of online trig3 events ",len(online_trig3_events))
-print("Number of offline trig4 events",len(offline_trig4_events))
-print("Number of online trig4 events ",len(online_trig4_events))
-print("Number of offline trig5 events ",len(offline_trig5_events))
-print("Number of online trig5 events ",len(online_trig5_events))
-print("Number of offline trig7 events",len(offline_trig7_events))
-print("Number of online trig7 events ",len(online_trig7_events))
-print("Number of offline trig9 events",len(offline_trig9_events))
-print("Number of online trig9 events ",len(online_trig9_events))
-print("Number of offline trig10 events",len(offline_trig10_events))
-print("Number of online trig10 events ",len(online_trig10_events))
-print("Number of offline trig11 events",len(offline_trig11_events))
-print("Number of online trig11 events ",len(online_trig11_events),"\n")
-print("Offline trig1 events that are not found online ",ak.to_list(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events,invert=True)]))
-print("Offline trig2 events that are not found online ",ak.to_list(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events,invert=True)]))
-print("Online trig1 events that are not found offline ",ak.to_list(online_trig1_events[np.isin(online_trig1_events,offline_trig1_events,invert=True)]))
-print("Online trig2 events that are not found offline ",ak.to_list(online_trig2_events[np.isin(online_trig2_events,offline_trig2_events,invert=True)]))
+print("Trigger Name".ljust(18),"nOnline".ljust(18),"nOffline".ljust(18),"Offline Efficiency".ljust(18))
+print("-"*74)
+print("FourLayersHit".ljust(18),str(len(online_trig1_events)).ljust(18),str(len(offline_trig1_events)).ljust(18),eff1.ljust(18))
+print("threeInaRow".ljust(18),str(len(online_trig2_events)).ljust(18),str(len(offline_trig2_events)).ljust(18),eff2.ljust(18))
+print("twoSeparatedLayers".ljust(18),str(len(online_trig3_events)).ljust(18),str(len(offline_trig3_events)).ljust(18),eff3.ljust(18))
+print("twoAdjacentLayers".ljust(18),str(len(online_trig4_events)).ljust(18),str(len(offline_trig4_events)).ljust(18),eff4.ljust(18))
+print("NLayersHit".ljust(18),str(len(online_trig5_events)).ljust(18),str(len(offline_trig5_events)).ljust(18),eff5.ljust(18))
+print("gtNHits".ljust(18),str(len(online_trig7_events)).ljust(18),str(len(offline_trig7_events)).ljust(18),eff7.ljust(18))
+print("topPanels".ljust(18),str(len(online_trig9_events)).ljust(18),str(len(offline_trig9_events)).ljust(18),eff9.ljust(18))
+print("topPanelsBotBars".ljust(18),str(len(online_trig10_events)).ljust(18),str(len(offline_trig10_events)).ljust(18),eff10.ljust(18))
+print("Front/BackPanels".ljust(18),str(len(online_trig11_events)).ljust(18),str(len(offline_trig11_events)).ljust(18),eff11.ljust(18))
+
+
+
+#print("Offline trig1 events that are not found online ",ak.to_list(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events,invert=True)]))
+#print("Offline trig2 events that are not found online ",ak.to_list(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events,invert=True)]))
+#print("Online trig1 events that are not found offline ",ak.to_list(online_trig1_events[np.isin(online_trig1_events,offline_trig1_events,invert=True)]))
+#print("Online trig2 events that are not found offline ",ak.to_list(online_trig2_events[np.isin(online_trig2_events,offline_trig2_events,invert=True)]))
 
