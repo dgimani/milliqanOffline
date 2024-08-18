@@ -72,168 +72,192 @@ timemask = np.abs(pulse1.time - pulse2.time) <= window
 
 #Useful for later
 layerdiff = np.abs(pulse1.layer - pulse2.layer)
+layermask = layerdiff != 0   #pulse1.layer != pulse2.layer
+not_panels = (pulse1["type"] == 0) & (pulse2["type"] == 0)
 
 #============================Four layers offline========================================
-#Form a mask to require that the paired pulses are not in the same layer and aren't panels. We don't care about those combinations anyway and removing them speeds things up.
-layermask = layerdiff != 0   #pulse1.layer != pulse2.layer
-not_panels = (pulse1["type"] == 0) & (pulse2["type"] == 0) 
+def offlineTrig1Check(pulse1,pulse2):    
+    #Filter out the paired pulses which are not in the same layer and aren't panels. We don't care about those combinations anyway and removing them speeds things up.
+    pulse1_filtered = pulse1[timemask & layermask & not_panels]
+    pulse2_filtered = pulse2[timemask & layermask & not_panels]
 
-pulse1_filtered = pulse1[timemask & layermask & not_panels]
-pulse2_filtered = pulse2[timemask & layermask & not_panels]
+    #Pairs of filtered pulses
+    filtered_pairs = ak.zip([pulse1_filtered,pulse2_filtered])
 
-#Pairs of filtered pulses
-filtered_pairs = ak.zip([pulse1_filtered,pulse2_filtered])
+    #Now we take the pair of pulses and form pairs of those pairs
+    pairpairs = ak.combinations(filtered_pairs,2)
 
-#Now we take the pair of pulses and form pairs of those pairs
-pairpairs = ak.combinations(filtered_pairs,2)
+    pair1, pair2 = ak.unzip(pairpairs)
 
-pair1, pair2 = ak.unzip(pairpairs)
+    pair1_pulse1,pair1_pulse2 = ak.unzip(pair1)
+    pair2_pulse1,pair2_pulse2 = ak.unzip(pair2)
 
-pair1_pulse1,pair1_pulse2 = ak.unzip(pair1)
-pair2_pulse1,pair2_pulse2 = ak.unzip(pair2)
+    #Now create masks that check whether all four pulses from each pair are within 150ns of each other. (Can't seem to take min or max between awkward arrays elementwise.)
+    aaba = np.abs(pair1_pulse1.time - pair2_pulse1.time) <= window
+    aabb = np.abs(pair1_pulse1.time - pair2_pulse2.time) <= window
+    abba = np.abs(pair1_pulse2.time - pair2_pulse1.time) <= window    #see that girl...
+    abbb = np.abs(pair1_pulse2.time - pair2_pulse2.time) <= window
 
+    window_mask = aaba & aabb & abba & abbb     #Require that they all be true in order for all four pulses to be in a common window.
 
-#Now create masks that check whether all four pulses from each pair are within 150ns of each other. (Can't seem to take min or max between awkward arrays elementwise.)
-aaba = np.abs(pair1_pulse1.time - pair2_pulse1.time) <= window
-aabb = np.abs(pair1_pulse1.time - pair2_pulse2.time) <= window
-abba = np.abs(pair1_pulse2.time - pair2_pulse1.time) <= window    #see that girl...
-abbb = np.abs(pair1_pulse2.time - pair2_pulse2.time) <= window
+    #These are the combinations of four pulses which are our candidates for trigger 1
+    trig1cand1 = pair1_pulse1[window_mask]
+    trig1cand2 = pair1_pulse2[window_mask]
+    trig1cand3 = pair2_pulse1[window_mask]
+    trig1cand4 = pair2_pulse2[window_mask]
 
+    #For our final offline four layers hit mask we require that none of our candidate pulses be in the same layer. Note that we already know cand1/3 and cand2/4 are not in the same layer.
+    different_layers = ((trig1cand1.layer != trig1cand3.layer) & 
+                        (trig1cand1.layer != trig1cand4.layer) & 
+                        (trig1cand2.layer != trig1cand3.layer) & 
+                        (trig1cand2.layer != trig1cand4.layer))
 
-window_mask = aaba & aabb & abba & abbb     #Require that they all be true in order for all four pulses to be in a common window.
-
-#These are the combinations of four pulses which are our candidates for trigger 1
-trig1cand1 = pair1_pulse1[window_mask]
-trig1cand2 = pair1_pulse2[window_mask]
-trig1cand3 = pair2_pulse1[window_mask]
-trig1cand4 = pair2_pulse2[window_mask]
-
-#For our final offline four layers hit mask we require that none of our candidate pulses be in the same layer. Note that we already know cand1/3 and cand2/4 are not in the same layer.
-different_layers = ((trig1cand1.layer != trig1cand3.layer) & 
-                    (trig1cand1.layer != trig1cand4.layer) & 
-                    (trig1cand2.layer != trig1cand3.layer) & 
-                    (trig1cand2.layer != trig1cand4.layer))
-
-fourLayersHitmask = different_layers
-offline_trig1_events = event[ak.any(fourLayersHitmask,axis=1)]
+    fourLayersHitmask = different_layers
+    offline_trig1_events = event[ak.any(fourLayersHitmask,axis=1)]
+    return offline_trig1_events
 
 
 #============================Three in row offline========================================
-#Form a mask to require that the paired pulses are in the same column and trigger group row. We don't care about those combinations anyway and removing them speeds things up.
-rowmask = pulse1.row == pulse2.row
-columnmask = (pulse1.column == pulse2.column) | (pulse1.column == pulse2.column + 1) | (pulse1.column + 1 == pulse2.column) & ((pulse1.column != 1) | (pulse2.column != 2)) & ((pulse1.column != 2 ) | (pulse2.column != 1))
+def offlineTrig2Check(pulse1,pulse2):
+    #Form a mask to require that the paired pulses are in the same column and trigger group row. We don't care about those combinations anyway and removing them speeds things up.
+    rowmask = pulse1.row == pulse2.row
+    columnmask = (pulse1.column == pulse2.column) | (pulse1.column == pulse2.column + 1) | (pulse1.column + 1 == pulse2.column) & ((pulse1.column != 1) | (pulse2.column != 2)) & ((pulse1.column != 2 ) | (pulse2.column != 1))
 
+    pulse1_filtered = pulse1[timemask & layermask & not_panels & rowmask & columnmask]
+    pulse2_filtered = pulse2[timemask & layermask & not_panels & rowmask & columnmask]
 
-pulse1_filtered = pulse1[timemask & layermask & not_panels & rowmask & columnmask]
-pulse2_filtered = pulse2[timemask & layermask & not_panels & rowmask & columnmask]
+    #Pairs of filtered pulses
+    filtered_pairs = ak.zip([pulse1_filtered,pulse2_filtered])
 
-#Pairs of filtered pulses
-filtered_pairs = ak.zip([pulse1_filtered,pulse2_filtered])
+    #Now we take the pair of pulses and form pairs of those pairs
+    pairpairs = ak.combinations(filtered_pairs,2)
 
-#Now we take the pair of pulses and form pairs of those pairs
-pairpairs = ak.combinations(filtered_pairs,2)
+    pair1, pair2 = ak.unzip(pairpairs)
 
-pair1, pair2 = ak.unzip(pairpairs)
+    pair1_pulse1,pair1_pulse2 = ak.unzip(pair1)
+    pair2_pulse1,pair2_pulse2 = ak.unzip(pair2)
 
-pair1_pulse1,pair1_pulse2 = ak.unzip(pair1)
-pair2_pulse1,pair2_pulse2 = ak.unzip(pair2)
+    #Now create masks that check whether all four pulses from each pair are within 150ns of each other. (Can't seem to take min or max between awkward arrays elementwise.)
+    #Note: we must also require the pulse time difference is not zero to remove duplicate pulses, provided that they in fact are duplicates. Check the channel to make sure they aren't just pulses from 
+    #different channels arriving at the same time.
+    aaba = (np.abs(pair1_pulse1.time - pair2_pulse1.time) <= window) & ( (pair1_pulse1.chan != pair2_pulse1.chan) | (np.abs(pair1_pulse1.time - pair2_pulse1.time) != 0) )
+    aabb = (np.abs(pair1_pulse1.time - pair2_pulse2.time) <= window) & ( (pair1_pulse1.chan != pair2_pulse2.chan) | (np.abs(pair1_pulse1.time - pair2_pulse2.time) != 0) )
+    abba = (np.abs(pair1_pulse2.time - pair2_pulse1.time) <= window) & ( (pair1_pulse2.chan != pair2_pulse1.chan) | (np.abs(pair1_pulse2.time - pair2_pulse1.time) != 0) )   #see that girl...
+    abbb = (np.abs(pair1_pulse2.time - pair2_pulse2.time) <= window) & ( (pair1_pulse2.chan != pair2_pulse2.chan) | (np.abs(pair1_pulse2.time - pair2_pulse2.time) != 0) )
 
+    #Require that at least three of the pulses be within the time window. Note that we already know pair1pulse1 and pair2pulse2 satisfy the window, ditto for pair2pulse1 and pair2pulse2
+    time_123 = abba & aaba
+    time_124 = aabb & abbb
+    time_234 = abba & abbb
+    time_134 = aaba & aabb
 
-#Now create masks that check whether all four pulses from each pair are within 150ns of each other. (Can't seem to take min or max between awkward arrays elementwise.)
-#Note: we must also require the pulse time difference is not zero to remove duplicate pulses, provided that they in fact are duplicates. Check the channel to make sure they aren't just pulses from 
-#different channels arriving at the same time.
-aaba = (np.abs(pair1_pulse1.time - pair2_pulse1.time) <= window) & ( (pair1_pulse1.chan != pair2_pulse1.chan) | (np.abs(pair1_pulse1.time - pair2_pulse1.time) != 0) )
-aabb = (np.abs(pair1_pulse1.time - pair2_pulse2.time) <= window) & ( (pair1_pulse1.chan != pair2_pulse2.chan) | (np.abs(pair1_pulse1.time - pair2_pulse2.time) != 0) )
-abba = (np.abs(pair1_pulse2.time - pair2_pulse1.time) <= window) & ( (pair1_pulse2.chan != pair2_pulse1.chan) | (np.abs(pair1_pulse2.time - pair2_pulse1.time) != 0) )   #see that girl...
-abbb = (np.abs(pair1_pulse2.time - pair2_pulse2.time) <= window) & ( (pair1_pulse2.chan != pair2_pulse2.chan) | (np.abs(pair1_pulse2.time - pair2_pulse2.time) != 0) )
+    #There are four different ways to have three different layers. Note that we have already required that pair1_pulse1 and pair1_pulse2 be in different layers from the first pairing, same for cand3 and cand4.
+    diff_layer123 =  ((pair1_pulse1.layer != pair2_pulse1.layer) &
+                    (pair1_pulse2.layer != pair2_pulse1.layer))
+    diff_layer124 =  ((pair1_pulse1.layer != pair2_pulse2.layer) &
+                    (pair1_pulse2.layer != pair2_pulse2.layer))
+    diff_layer234 =  ((pair1_pulse2.layer != pair2_pulse1.layer) & 
+                    (pair1_pulse2.layer != pair2_pulse2.layer))
+    diff_layer134 =  ((pair1_pulse1.layer != pair2_pulse1.layer) & 
+                    (pair1_pulse1.layer != pair2_pulse2.layer))
 
-#Require that at least three of the pulses be within the time window. Note that we already know pair1pulse1 and pair2pulse2 satisfy the window, ditto for pair2pulse1 and pair2pulse2
-time_123 = abba & aaba
-time_124 = aabb & abbb
-time_234 = abba & abbb
-time_134 = aaba & aabb
+    #There are four ways to be in the same row. Again, cand1 and cand2 are already in the same row, as are cand3 and cand4.
+    same_row123 =  ((pair1_pulse1.row == pair2_pulse1.row) &
+            (pair1_pulse2.row == pair2_pulse1.row))
+    same_row124 =  ((pair1_pulse1.row == pair2_pulse2.row) &
+            (pair1_pulse2.row == pair2_pulse2.row))
+    same_row234 =  ((pair1_pulse2.row == pair2_pulse1.row) &
+            (pair1_pulse2.row == pair2_pulse2.row))
+    same_row134 =  ((pair1_pulse1.row == pair2_pulse1.row) &
+            (pair1_pulse1.row == pair2_pulse2.row))
 
-#There are four different ways to have three different layers. Note that we have already required that pair1_pulse1 and pair1_pulse2 be in different layers from the first pairing, same for cand3 and cand4.
-diff_layer123 =  ((pair1_pulse1.layer != pair2_pulse1.layer) &
-                (pair1_pulse2.layer != pair2_pulse1.layer))
-diff_layer124 =  ((pair1_pulse1.layer != pair2_pulse2.layer) &
-                (pair1_pulse2.layer != pair2_pulse2.layer))
-diff_layer234 =  ((pair1_pulse2.layer != pair2_pulse1.layer) & 
-                (pair1_pulse2.layer != pair2_pulse2.layer))
-diff_layer134 =  ((pair1_pulse1.layer != pair2_pulse1.layer) & 
-                (pair1_pulse1.layer != pair2_pulse2.layer))
+    #There are four ways to be in the same trigger group (column pairs). Once again cand1 and cand2 already are as are cand3 and cand4.
+    same_cols123 = (((pair1_pulse1.column == pair2_pulse1.column) | (pair1_pulse1.column == pair2_pulse1.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse1.column)) & 
+                    (((pair1_pulse1.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse1.column != 1))) &
+                    ((pair1_pulse2.column == pair2_pulse1.column) | (pair1_pulse2.column == pair2_pulse1.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse1.column)) & 
+                    (((pair1_pulse2.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse1.column != 1))))
+    same_cols124 = (((pair1_pulse1.column == pair2_pulse2.column) | (pair1_pulse1.column == pair2_pulse2.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse2.column)) & 
+                    (((pair1_pulse1.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse2.column != 1))) &
+                    ((pair1_pulse2.column == pair2_pulse2.column) | (pair1_pulse2.column == pair2_pulse2.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse2.column)) & 
+                    (((pair1_pulse2.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse2.column != 1))))
+    same_cols234 = (((pair1_pulse2.column == pair2_pulse1.column) | (pair1_pulse2.column == pair2_pulse1.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse1.column)) & 
+                    (((pair1_pulse2.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse1.column != 1))) &
+                    ((pair1_pulse2.column == pair2_pulse2.column) | (pair1_pulse2.column == pair2_pulse2.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse2.column)) & 
+                    (((pair1_pulse2.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse2.column != 1))))
+    same_cols134 = (((pair1_pulse1.column == pair2_pulse1.column) | (pair1_pulse1.column == pair2_pulse1.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse1.column)) & 
+                    (((pair1_pulse1.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse1.column != 1))) &
+                    ((pair1_pulse1.column == pair2_pulse2.column) | (pair1_pulse1.column == pair2_pulse2.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse2.column)) & 
+                    (((pair1_pulse1.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse2.column != 1))))
 
-#There are four ways to be in the same row. Again, cand1 and cand2 are already in the same row, as are cand3 and cand4.
-same_row123 =  ((pair1_pulse1.row == pair2_pulse1.row) &
-           (pair1_pulse2.row == pair2_pulse1.row))
-same_row124 =  ((pair1_pulse1.row == pair2_pulse2.row) &
-           (pair1_pulse2.row == pair2_pulse2.row))
-same_row234 =  ((pair1_pulse2.row == pair2_pulse1.row) &
-           (pair1_pulse2.row == pair2_pulse2.row))
-same_row134 =  ((pair1_pulse1.row == pair2_pulse1.row) &
-           (pair1_pulse1.row == pair2_pulse2.row))
+    #We now have four possible candidate three in row combinations, we take the OR of them to allow any of them to be true
+    trig2cand1 = time_123 & diff_layer123 & same_row123 & same_cols123
+    trig2cand2 = time_124 & diff_layer124 & same_row123 & same_cols124
+    trig2cand3 = time_234 & diff_layer234 & same_row234 & same_cols234
+    trig2cand4 = time_134 & diff_layer134 & same_row134 & same_cols134
+    threeInRow_mask = trig2cand1 | trig2cand2 | trig2cand3 | trig2cand4
 
-#There are four ways to be in the same trigger group (column pairs). Once again cand1 and cand2 already are as are cand3 and cand4.
-same_cols123 = (((pair1_pulse1.column == pair2_pulse1.column) | (pair1_pulse1.column == pair2_pulse1.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse1.column)) & 
-                (((pair1_pulse1.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse1.column != 1))) &
-                ((pair1_pulse2.column == pair2_pulse1.column) | (pair1_pulse2.column == pair2_pulse1.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse1.column)) & 
-                (((pair1_pulse2.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse1.column != 1))))
-same_cols124 = (((pair1_pulse1.column == pair2_pulse2.column) | (pair1_pulse1.column == pair2_pulse2.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse2.column)) & 
-                (((pair1_pulse1.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse2.column != 1))) &
-                ((pair1_pulse2.column == pair2_pulse2.column) | (pair1_pulse2.column == pair2_pulse2.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse2.column)) & 
-                (((pair1_pulse2.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse2.column != 1))))
-same_cols234 = (((pair1_pulse2.column == pair2_pulse1.column) | (pair1_pulse2.column == pair2_pulse1.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse1.column)) & 
-                (((pair1_pulse2.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse1.column != 1))) &
-                ((pair1_pulse2.column == pair2_pulse2.column) | (pair1_pulse2.column == pair2_pulse2.column + 1) | (pair1_pulse2.column + 1 == pair2_pulse2.column)) & 
-                (((pair1_pulse2.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse2.column != 2 ) | (pair2_pulse2.column != 1))))
-same_cols134 = (((pair1_pulse1.column == pair2_pulse1.column) | (pair1_pulse1.column == pair2_pulse1.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse1.column)) & 
-                (((pair1_pulse1.column != 1) | (pair2_pulse1.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse1.column != 1))) &
-                ((pair1_pulse1.column == pair2_pulse2.column) | (pair1_pulse1.column == pair2_pulse2.column + 1) | (pair1_pulse1.column + 1 == pair2_pulse2.column)) & 
-                (((pair1_pulse1.column != 1) | (pair2_pulse2.column != 2)) & ((pair1_pulse1.column != 2 ) | (pair2_pulse2.column != 1))))
-
-#We now have four possible candidate three in row combinations, we take the OR of them to allow any of them to be true
-trig2cand1 = time_123 & diff_layer123 & same_row123 & same_cols123
-trig2cand2 = time_124 & diff_layer124 & same_row123 & same_cols124
-trig2cand3 = time_234 & diff_layer234 & same_row234 & same_cols234
-trig2cand4 = time_134 & diff_layer134 & same_row134 & same_cols134
-threeInRow_mask = trig2cand1 | trig2cand2 | trig2cand3 | trig2cand4
-
-offline_trig2_events = event[ak.any(threeInRow_mask,axis=1)]
+    offline_trig2_events = event[ak.any(threeInRow_mask,axis=1)]
+    return offline_trig2_events
 
 #============================Two separated layers========================================
-nonadjacent = layerdiff > 1
-twoSeparatedLayers_mask = nonadjacent & not_panels & timemask
-offline_trig3_events = event[ak.any(twoSeparatedLayers_mask,axis=1)]
+def offlineTrig3Check(pulse1,pulse2):
+    nonadjacent = layerdiff > 1
+    twoSeparatedLayers_mask = nonadjacent & not_panels & timemask
+    offline_trig3_events = event[ak.any(twoSeparatedLayers_mask,axis=1)]
+    return offline_trig3_events
 
 #============================Two adjacent layers=========================================
-adjacent = layerdiff == 1
-twoAdjacentLayers_mask = adjacent & not_panels & timemask
-offline_trig4_events = event[ak.any(twoAdjacentLayers_mask,axis=1)]
+def offlineTrig4Check(pulse1,pulse2):
+    adjacent = layerdiff == 1
+    twoAdjacentLayers_mask = adjacent & not_panels & timemask
+    offline_trig4_events = event[ak.any(twoAdjacentLayers_mask,axis=1)]
+    return offline_trig4_events
 
+#NEED TO REWORK THE FOLLOWING TRIGGER CHECKS IF TIMING WINDOW APPLIES TO THEM AS WELL
 #============================N Layers Hit================================================
-nLayers = np.array([len(np.unique(row)) for row in ak.to_list(pulses.layer[pulses["type"] == 0 ])])
-nLayers_mask = nLayers >= 3
-offline_trig5_events = event[nLayers_mask]
+def offlineTrig5Check(pulses):
+    nLayers = np.array([len(np.unique(row)) for row in ak.to_list(pulses.layer[pulses["type"] == 0 ])])
+    nLayers_mask = nLayers >= 3
+    offline_trig5_events = event[nLayers_mask]
+    return offline_trig5_events
 
 #============================Greater than N Hits=========================================
-numPulses = ak.num(pulses)
 nHit = 3
-gtNHits_mask = numPulses >= nHit + 1
-offline_trig7_events = event[gtNHits_mask]
+def offlineTrig7Check(pulses):
+    numPulses = ak.num(pulses)
+    gtNHits_mask = numPulses >= nHit + 1
+    offline_trig7_events = event[gtNHits_mask]
+    return offline_trig7_events
 
 #============================Top Panels==================================================
-topPanels_mask = ak.any(pulses.row == 4,axis=1)
-offline_trig9_events = event[topPanels_mask]
+def offlineTrig9Check(pulses):
+    topPanels_mask = ak.any(pulses.row == 4,axis=1)
+    offline_trig9_events = event[topPanels_mask]
+    return offline_trig9_events
 
 #============================Top Panels + Bottom Bars====================================
-topPanelsBotBars_mask = ak.any(pulses.row == 4,axis=1) & ak.any( (pulses.row == 0) & (pulses["type"] == 0),axis=1)
-offline_trig10_events = event[topPanelsBotBars_mask]
+def offlineTrig10Check(pulses):
+    topPanelsBotBars_mask = ak.any(pulses.row == 4,axis=1) & ak.any( (pulses.row == 0) & (pulses["type"] == 0),axis=1)
+    offline_trig10_events = event[topPanelsBotBars_mask]
+    return offline_trig10_events
 
 #============================Front/Back Panels==================================================
-frontBack_mask = ak.any(pulses.layer == -1, axis=1) & ak.any(pulses.layer == 4, axis=1)
-offline_trig11_events = event[frontBack_mask]
+def offlineTrig11Check(pulses):
+    frontBack_mask = ak.any(pulses.layer == -1, axis=1) & ak.any(pulses.layer == 4, axis=1)
+    offline_trig11_events = event[frontBack_mask]
+    return offline_trig11_events
 
 
+
+offline_trig1_events = offlineTrig1Check(pulse1,pulse2)
+offline_trig2_events = offlineTrig2Check(pulse1,pulse2)
+offline_trig3_events = offlineTrig3Check(pulse1,pulse2)
+offline_trig4_events = offlineTrig4Check(pulse1,pulse2)
+offline_trig5_events = offlineTrig5Check(pulses)
+offline_trig7_events = offlineTrig7Check(pulses)
+offline_trig9_events = offlineTrig9Check(pulses)
+offline_trig10_events = offlineTrig10Check(pulses)
+offline_trig11_events = offlineTrig11Check(pulses)
 
 #Online trigger events
 online_trig1_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-1] == '1'])]
