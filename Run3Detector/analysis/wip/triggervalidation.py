@@ -8,7 +8,7 @@ import hist
 #Open root file and ttree
 file = uproot.open("MilliQan_Run1415.1_v34.root")
 tree = file["t;1"]
-stop = 1000   #Set the number of files to run on
+stop = 1000   #Set the number of events to run on
 
 
 
@@ -191,7 +191,7 @@ def offlineTrig2Check(pulse1,pulse2):
 
     #We now have four possible candidate three in row combinations, we take the OR of them to allow any of them to be true
     trig2cand1 = time_123 & diff_layer123 & same_row123 & same_cols123
-    trig2cand2 = time_124 & diff_layer124 & same_row123 & same_cols124
+    trig2cand2 = time_124 & diff_layer124 & same_row124 & same_cols124
     trig2cand3 = time_234 & diff_layer234 & same_row234 & same_cols234
     trig2cand4 = time_134 & diff_layer134 & same_row134 & same_cols134
     threeInRow_mask = trig2cand1 | trig2cand2 | trig2cand3 | trig2cand4
