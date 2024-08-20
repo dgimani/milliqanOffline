@@ -231,22 +231,24 @@ def offlineTrig7Check(pulses):
 
 #============================Top Panels==================================================
 def offlineTrig9Check(pulses):
-    topPanels_mask = ak.any(pulses.row == 4,axis=1)
-    offline_trig9_events = event[topPanels_mask]
+    topPanels_mask = pulses.row == 4
+    offline_trig9_events = event[ak.any(topPanels_mask,axis=1)]
     return offline_trig9_events
 
 #============================Top Panels + Bottom Bars====================================
-def offlineTrig10Check(pulses):
-    topPanelsBotBars_mask = ak.any(pulses.row == 4,axis=1) & ak.any( (pulses.row == 0) & (pulses["type"] == 0),axis=1)
-    offline_trig10_events = event[topPanelsBotBars_mask]
+def offlineTrig10Check(pulse1,pulse2):
+    panel_bar_mask = ((pulse1.row == 4) & ((pulse2.row == 0) & (pulse2["type"] == 0))) | ( (pulse2.row == 4) & ((pulse1.row == 0) & (pulse1["type"] == 0)) )
+    topPanelsBotBars_mask = panel_bar_mask & timemask
+    #ak.any(pulses.row == 4,axis=1) & ak.any( (pulses.row == 0) & (pulses["type"] == 0),axis=1)
+    offline_trig10_events = event[ak.any(topPanelsBotBars_mask,axis=1)]
     return offline_trig10_events
 
 #============================Front/Back Panels==================================================
-def offlineTrig11Check(pulses):
-    frontBack_mask = ak.any(pulses.layer == -1, axis=1) & ak.any(pulses.layer == 4, axis=1)
-    offline_trig11_events = event[frontBack_mask]
+def offlineTrig11Check(pulse1,pulse2):
+    frontBack_mask = ((pulse1.layer == -1) & (pulse2.layer == 4)) | ((pulse2.layer == -1) & (pulse1.layer == 4))
+    #ak.any(pulses.layer == -1, axis=1) & ak.any(pulses.layer == 4, axis=1)
+    offline_trig11_events = event[ak.any(frontBack_mask & timemask,axis=1)]
     return offline_trig11_events
-
 
 
 offline_trig1_events = offlineTrig1Check(pulse1,pulse2)
@@ -256,8 +258,8 @@ offline_trig4_events = offlineTrig4Check(pulse1,pulse2)
 offline_trig5_events = offlineTrig5Check(pulses)
 offline_trig7_events = offlineTrig7Check(pulses)
 offline_trig9_events = offlineTrig9Check(pulses)
-offline_trig10_events = offlineTrig10Check(pulses)
-offline_trig11_events = offlineTrig11Check(pulses)
+offline_trig10_events = offlineTrig10Check(pulse1,pulse2)
+offline_trig11_events = offlineTrig11Check(pulse1,pulse2)
 
 #Online trigger events
 online_trig1_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-1] == '1'])]
