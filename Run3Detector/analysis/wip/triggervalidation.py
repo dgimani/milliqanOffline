@@ -4,9 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import vector
 import hist
+import argparse
 
 #Open root file and ttree
-file = uproot.open("MilliQan_Run1415.1_v34.root")
+file = uproot.open("MilliQan_Run1415.2_v34.root")
 tree = file["t;1"]
 stop = 1000   #Set the number of events to run on
 
@@ -14,7 +15,7 @@ stop = 1000   #Set the number of events to run on
 
 branches = tree.arrays(["time","height","area","row","column","layer","duration","chan","type"],entry_stop=stop)
 
-#Fix mislabeled channels
+#Fix mislabeled channels (don't use chan!!!!)
 chan_mask78 = (branches["chan"] == 78)
 chan_mask79 = (branches["chan"] == 79)
 new_chan = ak.where(chan_mask78, 24, branches["chan"])
@@ -114,6 +115,19 @@ def offlineTrig1Check(pulse1,pulse2):
 
     fourLayersHitmask = different_layers
     offline_trig1_events = event[ak.any(fourLayersHitmask,axis=1)]
+
+    cand1_chans = trig1cand1.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
+    cand2_chans = trig1cand2.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
+    cand3_chans = trig1cand3.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
+    cand4_chans = trig1cand4.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
+    fig = plt.figure()
+    h = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
+    h.fill(ak.ravel(cand1_chans))
+    h.fill(ak.ravel(cand2_chans))
+    h.fill(ak.ravel(cand3_chans))
+    h.fill(ak.ravel(cand4_chans))
+    h.plot()
+    
     return offline_trig1_events
 
 
@@ -311,3 +325,4 @@ print("Front/BackPanels".ljust(18),str(len(online_trig11_events)).ljust(18),str(
 #print("Online trig1 events that are not found offline ",ak.to_list(online_trig1_events[np.isin(online_trig1_events,offline_trig1_events,invert=True)]))
 #print("Online trig2 events that are not found offline ",ak.to_list(online_trig2_events[np.isin(online_trig2_events,offline_trig2_events,invert=True)]))
 
+plt.show()
