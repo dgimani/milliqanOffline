@@ -6,75 +6,6 @@ import vector
 import hist
 import argparse
 
-#Open root file and ttree
-file = uproot.open("MilliQan_Run1415.2_v34.root")
-tree = file["t;1"]
-stop = 1000   #Set the number of events to run on
-
-
-
-branches = tree.arrays(["time","height","area","row","column","layer","duration","chan","type"],entry_stop=stop)
-
-#Fix mislabeled channels (don't use chan!!!!)
-chan_mask78 = (branches["chan"] == 78)
-chan_mask79 = (branches["chan"] == 79)
-new_chan = ak.where(chan_mask78, 24, branches["chan"])
-new_chan = ak.where(chan_mask79, 25, new_chan)
-branches = ak.with_field(branches, new_chan, "chan")
-
-tTrigger = tree["tTrigger"].array(entry_stop=stop)
-event = tree["event"].array(entry_stop=stop)
-
-matched_mask = tTrigger != -1  #Require matched triggers
-
-branches = branches[matched_mask]
-tTrigger = tTrigger[matched_mask]
-event = event[matched_mask]
-
-#Turn the decimal tTrigger branch into an array of bitstrings
-bin_rep_vec = np.vectorize(np.binary_repr)
-trig_np = ak.to_numpy(tTrigger).astype(int)
-triggerbits = bin_rep_vec(trig_np,width=13)
-
-
-
-dynamicPedestal = tree["dynamicPedestal"].array(entry_stop=stop)
-dynamicPedestal = dynamicPedestal[matched_mask]
-
-online_height = branches["height"] + dynamicPedestal[branches["chan"]]
-heightmask = online_height > 15
-height_cut = branches[heightmask]  #Apply dynamic pedestal correction
-
-
-#Now zip all these pulse shaped branches together into a record called pulses
-pulses = ak.zip(
-    {
-        "time": height_cut["time"],
-        "height": height_cut["height"],
-        "area": height_cut["area"],
-        "chan": height_cut["chan"],
-        "row": height_cut["row"],
-        "column": height_cut["column"],
-        "layer": height_cut["layer"],
-        "duration": height_cut["duration"],
-        "type": height_cut["type"],
-    }
-)
-
-#Now for timing combinations. We use ak.combinations to do N choose 2 on the existing pulses to form pairs of pulses.
-pairs = ak.combinations(pulses,2)
-
-#Unzip the pairs to get each half of the combinations.
-pulse1, pulse2 = ak.unzip(pairs)
-
-#Form a mask for pulses within 150ns of each other. This mask will cut down on the combinatorics.
-window = 150
-timemask = np.abs(pulse1.time - pulse2.time) <= window
-
-#Useful for later
-layerdiff = np.abs(pulse1.layer - pulse2.layer)
-layermask = layerdiff != 0   #pulse1.layer != pulse2.layer
-not_panels = (pulse1["type"] == 0) & (pulse2["type"] == 0)
 
 #============================Four layers offline========================================
 def offlineTrig1Check(pulse1,pulse2):    
@@ -120,13 +51,12 @@ def offlineTrig1Check(pulse1,pulse2):
     cand2_chans = trig1cand2.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
     cand3_chans = trig1cand3.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
     cand4_chans = trig1cand4.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
-    fig = plt.figure()
-    h = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
-    h.fill(ak.ravel(cand1_chans))
-    h.fill(ak.ravel(cand2_chans))
-    h.fill(ak.ravel(cand3_chans))
-    h.fill(ak.ravel(cand4_chans))
-    h.plot()
+    
+    h1.fill(ak.ravel(cand1_chans))
+    h1.fill(ak.ravel(cand2_chans))
+    h1.fill(ak.ravel(cand3_chans))
+    h1.fill(ak.ravel(cand4_chans))
+    
     
     return offline_trig1_events
 
@@ -265,30 +195,149 @@ def offlineTrig11Check(pulse1,pulse2):
     return offline_trig11_events
 
 
-offline_trig1_events = offlineTrig1Check(pulse1,pulse2)
-offline_trig2_events = offlineTrig2Check(pulse1,pulse2)
-offline_trig3_events = offlineTrig3Check(pulse1,pulse2)
-offline_trig4_events = offlineTrig4Check(pulse1,pulse2)
-offline_trig5_events = offlineTrig5Check(pulses)
-offline_trig7_events = offlineTrig7Check(pulses)
-offline_trig9_events = offlineTrig9Check(pulses)
-offline_trig10_events = offlineTrig10Check(pulse1,pulse2)
-offline_trig11_events = offlineTrig11Check(pulse1,pulse2)
 
-#Online trigger events
-online_trig1_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-1] == '1'])]
-online_trig2_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-2] == '1'])]
-online_trig3_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-3] == '1'])]
-online_trig4_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-4] == '1'])]
-online_trig5_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-5] == '1'])]
-#online_trig6_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-6] == '1'])]
-online_trig7_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-7] == '1'])]
-#online_trig8_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-8] == '1'])]
-online_trig9_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-9] == '1'])]
-online_trig10_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-10] == '1'])]
-online_trig11_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-11] == '1'])]
-#online_trig12_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-12] == '1'])]
-online_trig13_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-13] == '1'])]
+fig = plt.figure()
+h1 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
+
+offline_trig1_events = ak.Array([])
+offline_trig2_events = ak.Array([])
+offline_trig3_events = ak.Array([])
+offline_trig4_events = ak.Array([])
+offline_trig5_events = ak.Array([])
+offline_trig7_events = ak.Array([])
+offline_trig9_events = ak.Array([])
+offline_trig10_events = ak.Array([])
+offline_trig11_events = ak.Array([])
+
+online_trig1_events = ak.Array([])
+online_trig2_events = ak.Array([])
+online_trig3_events = ak.Array([])
+online_trig4_events = ak.Array([])
+online_trig5_events = ak.Array([])
+online_trig7_events = ak.Array([])
+online_trig9_events = ak.Array([])
+online_trig10_events = ak.Array([])
+online_trig11_events = ak.Array([])
+
+for branches in uproot.iterate("MilliQan_Run1415.*_v34.root",["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal"],step_size=1000):
+
+
+    #Open root file and ttree
+    #file = uproot.open("MilliQan_Run1415.2_v34.root")
+    #tree = file["t;1"]
+    #stop = 1000   #Set the number of events to run on
+    #branches = tree.arrays(["time","height","area","row","column","layer","duration","chan","type"],entry_stop=stop)
+
+    
+    #Fix mislabeled channels (don't use chan!!!!)
+    chan_mask78 = (branches["chan"] == 78)
+    chan_mask79 = (branches["chan"] == 79)
+    new_chan = ak.where(chan_mask78, 24, branches["chan"])
+    new_chan = ak.where(chan_mask79, 25, new_chan)
+    branches = ak.with_field(branches, new_chan, "chan")
+
+    #tTrigger = tree["tTrigger"].array(entry_stop=stop)
+    #event = tree["event"].array(entry_stop=stop)
+
+    tTrigger = branches["tTrigger"]
+    event = branches["event"]
+    dynamicPedestal = branches["dynamicPedestal"]
+
+    matched_mask = tTrigger != -1  #Require matched triggers
+    branches = branches[matched_mask]
+    dynamicPedestal = dynamicPedestal[matched_mask]
+    tTrigger = tTrigger[matched_mask]
+    event = event[matched_mask]
+
+    #Turn the decimal tTrigger branch into an array of bitstrings
+    bin_rep_vec = np.vectorize(np.binary_repr)
+    trig_np = ak.to_numpy(tTrigger).astype(int)
+    triggerbits = bin_rep_vec(trig_np,width=13)
+
+    #Now zip all these pulse shaped branches together into a record called pulses
+    pulses = ak.zip(
+        {
+            "time": branches["time"],
+            "height": branches["height"],
+            "area": branches["area"],
+            "chan": branches["chan"],
+            "row": branches["row"],
+            "column": branches["column"],
+            "layer": branches["layer"],
+            "type": branches["type"],
+        }
+    )
+
+    #dynamicPedestal = tree["dynamicPedestal"].array(entry_stop=stop)
+    
+
+    online_height = pulses.height + dynamicPedestal[pulses.chan]
+    heightmask = online_height > 15
+    pulses = pulses[heightmask]  #Apply dynamic pedestal correction to pulses
+
+
+
+    #Now for timing combinations. We use ak.combinations to do N choose 2 on the existing pulses to form pairs of pulses.
+    pairs = ak.combinations(pulses,2)
+
+    #Unzip the pairs to get each half of the combinations.
+    pulse1, pulse2 = ak.unzip(pairs)
+
+    #Form a mask for pulses within 150ns of each other. This mask will cut down on the combinatorics.
+    window = 150
+    timemask = np.abs(pulse1.time - pulse2.time) <= window
+
+    #Useful for later
+    layerdiff = np.abs(pulse1.layer - pulse2.layer)
+    layermask = layerdiff != 0   #pulse1.layer != pulse2.layer
+    not_panels = (pulse1["type"] == 0) & (pulse2["type"] == 0)
+
+    
+    offline_trig1_chunk_events = offlineTrig1Check(pulse1,pulse2)
+    offline_trig2_chunk_events = offlineTrig2Check(pulse1,pulse2)
+    offline_trig3_chunk_events = offlineTrig3Check(pulse1,pulse2)
+    offline_trig4_chunk_events = offlineTrig4Check(pulse1,pulse2)
+    offline_trig5_chunk_events = offlineTrig5Check(pulses)
+    offline_trig7_chunk_events = offlineTrig7Check(pulses)
+    offline_trig9_chunk_events = offlineTrig9Check(pulses)
+    offline_trig10_chunk_events = offlineTrig10Check(pulse1,pulse2)
+    offline_trig11_chunk_events = offlineTrig11Check(pulse1,pulse2)
+
+    offline_trig1_events = ak.concatenate([offline_trig1_events,offline_trig1_chunk_events])
+    offline_trig2_events = ak.concatenate([offline_trig2_events,offline_trig2_chunk_events])
+    offline_trig3_events = ak.concatenate([offline_trig3_events,offline_trig3_chunk_events])
+    offline_trig4_events = ak.concatenate([offline_trig4_events,offline_trig4_chunk_events])
+    offline_trig5_events = ak.concatenate([offline_trig5_events,offline_trig5_chunk_events])
+    offline_trig7_events = ak.concatenate([offline_trig7_events,offline_trig7_chunk_events])
+    offline_trig9_events = ak.concatenate([offline_trig9_events,offline_trig9_chunk_events])
+    offline_trig10_events = ak.concatenate([offline_trig10_events,offline_trig10_chunk_events])
+    offline_trig11_events = ak.concatenate([offline_trig11_events,offline_trig11_chunk_events])
+
+
+    #Online trigger events
+    online_trig1_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-1] == '1'])]
+    online_trig2_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-2] == '1'])]
+    online_trig3_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-3] == '1'])]
+    online_trig4_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-4] == '1'])]
+    online_trig5_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-5] == '1'])]
+    #online_trig6_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-6] == '1'])]
+    online_trig7_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-7] == '1'])]
+    #online_trig8_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-8] == '1'])]
+    online_trig9_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-9] == '1'])]
+    online_trig10_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-10] == '1'])]
+    online_trig11_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-11] == '1'])]
+    #online_trig12_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-12] == '1'])]
+    online_trig13_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-13] == '1'])]
+
+    online_trig1_events = ak.concatenate([online_trig1_events,online_trig1_chunk_events])
+    online_trig2_events = ak.concatenate([online_trig2_events,online_trig2_chunk_events])
+    online_trig3_events = ak.concatenate([online_trig3_events,online_trig3_chunk_events])
+    online_trig4_events = ak.concatenate([online_trig4_events,online_trig4_chunk_events])
+    online_trig5_events = ak.concatenate([online_trig5_events,online_trig5_chunk_events])
+    online_trig7_events = ak.concatenate([online_trig7_events,online_trig7_chunk_events])
+    online_trig9_events = ak.concatenate([online_trig9_events,online_trig9_chunk_events])
+    online_trig10_events = ak.concatenate([online_trig10_events,online_trig10_chunk_events])
+    online_trig11_events = ak.concatenate([online_trig11_events,online_trig11_chunk_events])
 
 #Offline efficiency = Offline and Online / Number offline
 eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),4))
@@ -325,4 +374,5 @@ print("Front/BackPanels".ljust(18),str(len(online_trig11_events)).ljust(18),str(
 #print("Online trig1 events that are not found offline ",ak.to_list(online_trig1_events[np.isin(online_trig1_events,offline_trig1_events,invert=True)]))
 #print("Online trig2 events that are not found offline ",ak.to_list(online_trig2_events[np.isin(online_trig2_events,offline_trig2_events,invert=True)]))
 
+h1.plot()
 plt.show()
