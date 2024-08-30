@@ -225,7 +225,9 @@ online_trig9_events = ak.Array([])
 online_trig10_events = ak.Array([])
 online_trig11_events = ak.Array([])
 
-for branches in uproot.iterate(files,["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal","fileNumber"],step_size=1000):
+files_with_trees = {file_name: "t;1" for file_name in files}
+
+for branches in uproot.iterate(files_with_trees,["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal","fileNumber"],step_size=1000):
 
 
     #Open root file and ttree
