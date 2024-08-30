@@ -5,6 +5,8 @@ import numpy as np
 import hist
 import argparse
 import sys
+import re
+import glob
 
 #============================Four layers offline========================================
 def offlineTrig1Check(pulse1,pulse2):    
@@ -194,8 +196,12 @@ def offlineTrig11Check(pulse1,pulse2):
     return offline_trig11_events
 
 
+def natural_sort_key(s):
+    return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
+
 
 path = sys.argv[1]
+files = sorted(glob.glob("{0}.root".format(path)), key=natural_sort_key)
 fig = plt.figure()
 h1 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
 
@@ -219,7 +225,7 @@ online_trig9_events = ak.Array([])
 online_trig10_events = ak.Array([])
 online_trig11_events = ak.Array([])
 
-for branches in uproot.iterate("{0}.root:t".format(path),["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal","fileNumber"],step_size=1000):
+for branches in uproot.iterate(files,["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal","fileNumber"],step_size=1000):
 
 
     #Open root file and ttree
@@ -305,15 +311,15 @@ for branches in uproot.iterate("{0}.root:t".format(path),["time","height","area"
     offline_trig10_chunk_events = offlineTrig10Check(pulse1,pulse2) + file_prefix
     offline_trig11_chunk_events = offlineTrig11Check(pulse1,pulse2) + file_prefix
 
-    offline_trig1_events = ak.concatenate([offline_trig1_chunk_events,offline_trig1_events]) 
-    offline_trig2_events = ak.concatenate([offline_trig2_chunk_events,offline_trig2_events])
-    offline_trig3_events = ak.concatenate([offline_trig3_chunk_events,offline_trig3_events])
-    offline_trig4_events = ak.concatenate([offline_trig4_chunk_events,offline_trig4_events])
-    offline_trig5_events = ak.concatenate([offline_trig5_chunk_events,offline_trig5_events])
-    offline_trig7_events = ak.concatenate([offline_trig7_chunk_events,offline_trig7_events])
-    offline_trig9_events = ak.concatenate([offline_trig9_chunk_events,offline_trig9_events])
-    offline_trig10_events = ak.concatenate([offline_trig10_chunk_events,offline_trig10_events])
-    offline_trig11_events = ak.concatenate([offline_trig11_chunk_events,offline_trig11_events])
+    offline_trig1_events = ak.concatenate([offline_trig1_events,offline_trig1_chunk_events]) 
+    offline_trig2_events = ak.concatenate([offline_trig2_events,offline_trig2_chunk_events])
+    offline_trig3_events = ak.concatenate([offline_trig3_events,offline_trig3_chunk_events])
+    offline_trig4_events = ak.concatenate([offline_trig4_events,offline_trig4_chunk_events])
+    offline_trig5_events = ak.concatenate([offline_trig5_events,offline_trig5_chunk_events])
+    offline_trig7_events = ak.concatenate([offline_trig7_events,offline_trig7_chunk_events])
+    offline_trig9_events = ak.concatenate([offline_trig9_events,offline_trig9_chunk_events])
+    offline_trig10_events = ak.concatenate([offline_trig10_events,offline_trig10_chunk_events])
+    offline_trig11_events = ak.concatenate([offline_trig11_events,offline_trig11_chunk_events])
 
 
     #Online trigger events
@@ -331,15 +337,15 @@ for branches in uproot.iterate("{0}.root:t".format(path),["time","height","area"
     #online_trig12_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-12] == '1'])] + file_prefix
     online_trig13_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-13] == '1'])] + file_prefix
 
-    online_trig1_events = ak.concatenate([online_trig1_chunk_events,online_trig1_events])
-    online_trig2_events = ak.concatenate([online_trig2_chunk_events,online_trig2_events])
-    online_trig3_events = ak.concatenate([online_trig3_chunk_events,online_trig3_events])
-    online_trig4_events = ak.concatenate([online_trig4_chunk_events,online_trig4_events])
-    online_trig5_events = ak.concatenate([online_trig5_chunk_events,online_trig5_events])
-    online_trig7_events = ak.concatenate([online_trig7_chunk_events,online_trig7_events])
-    online_trig9_events = ak.concatenate([online_trig9_chunk_events,online_trig9_events])
-    online_trig10_events = ak.concatenate([online_trig10_chunk_events,online_trig10_events])
-    online_trig11_events = ak.concatenate([online_trig11_chunk_events,online_trig11_events])
+    online_trig1_events = ak.concatenate([online_trig1_events,online_trig1_chunk_events])
+    online_trig2_events = ak.concatenate([online_trig2_events,online_trig2_chunk_events])
+    online_trig3_events = ak.concatenate([online_trig3_events,online_trig3_chunk_events])
+    online_trig4_events = ak.concatenate([online_trig4_events,online_trig4_chunk_events])
+    online_trig5_events = ak.concatenate([online_trig5_events,online_trig5_chunk_events])
+    online_trig7_events = ak.concatenate([online_trig7_events,online_trig7_chunk_events])
+    online_trig9_events = ak.concatenate([online_trig9_events,online_trig9_chunk_events])
+    online_trig10_events = ak.concatenate([online_trig10_events,online_trig10_chunk_events])
+    online_trig11_events = ak.concatenate([online_trig11_events,online_trig11_chunk_events])
 
 #Offline efficiency = Offline and Online / Number offline
 eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),6))
