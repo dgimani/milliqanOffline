@@ -48,10 +48,47 @@ def offlineTrig1Check(pulse1,pulse2):
     fourLayersHitmask = different_layers
     offline_trig1_events = event[ak.any(fourLayersHitmask,axis=1)]
 
-    cand1_chans = trig1cand1.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
-    cand2_chans = trig1cand2.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
-    cand3_chans = trig1cand3.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
-    cand4_chans = trig1cand4.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)][:,0:1]
+    #The following lines find the combination of four pulses which are earliest and chooses them to be put in the histogram
+    min11 = ak.min(trig1cand1.time[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)],axis=1)
+    min12 = ak.min(trig1cand2.time[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)],axis=1)
+    min13 = ak.min(trig1cand3.time[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)],axis=1)
+    min14 = ak.min(trig1cand4.time[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)],axis=1)
+
+    argmin11 = ak.argmin(trig1cand1.time[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)],axis=1)
+    argmin12 = ak.argmin(trig1cand2.time[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)],axis=1)
+    argmin13 = ak.argmin(trig1cand3.time[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)],axis=1)
+    argmin14 = ak.argmin(trig1cand4.time[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)],axis=1)
+
+    arr1 = trig1cand1.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)]
+    arr2 = trig1cand2.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)]
+    arr3 = trig1cand3.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)]
+    arr4 = trig1cand4.chan[fourLayersHitmask][ak.any(fourLayersHitmask,axis=1)]
+
+    minarray = np.minimum(min11,min12)
+    minarray = np.minimum(minarray,min13)
+    minarray = np.minimum(minarray,min14)
+
+    which_min = ak.argmax(
+        [min11 == minarray, min12 == minarray, min13 == minarray, min14 == minarray], 
+        axis=0
+    )
+
+    indices = ak.zeros_like(minarray)
+    indices = ak.where(which_min == 0, argmin11, indices)
+    indices = ak.where(which_min == 1, argmin12, indices)
+    indices = ak.where(which_min == 2, argmin13, indices)
+    indices = ak.where(which_min == 3, argmin14, indices)
+    indices_np = np.array(ak.to_numpy(indices), dtype=int)
+
+    sliced_arr1 = ak.Array([row[index] for row, index in zip(arr1,indices_np)])
+    sliced_arr2 = ak.Array([row[index] for row, index in zip(arr2,indices_np)])
+    sliced_arr3 = ak.Array([row[index] for row, index in zip(arr3,indices_np)])
+    sliced_arr4 = ak.Array([row[index] for row, index in zip(arr4,indices_np)])
+
+    cand1_chans = sliced_arr1
+    cand2_chans = sliced_arr2
+    cand3_chans = sliced_arr3
+    cand4_chans = sliced_arr4
     
     h1.fill(ak.ravel(cand1_chans))
     h1.fill(ak.ravel(cand2_chans))
@@ -202,6 +239,7 @@ def natural_sort_key(s):
 
 path = sys.argv[1]
 files = sorted(glob.glob("{0}.root".format(path)), key=natural_sort_key)
+print(files)
 fig = plt.figure()
 h1 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
 
@@ -226,6 +264,7 @@ online_trig10_events = ak.Array([])
 online_trig11_events = ak.Array([])
 
 files_with_trees = {file_name: "t;1" for file_name in files}
+print(files_with_trees)
 
 for branches in uproot.iterate(files_with_trees,["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal","fileNumber"],step_size=1000):
 
