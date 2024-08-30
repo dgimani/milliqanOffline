@@ -2,10 +2,9 @@ import uproot
 import awkward as ak
 import matplotlib.pyplot as plt
 import numpy as np
-import vector
 import hist
 import argparse
-
+import sys
 
 #============================Four layers offline========================================
 def offlineTrig1Check(pulse1,pulse2):    
@@ -196,6 +195,7 @@ def offlineTrig11Check(pulse1,pulse2):
 
 
 
+path = sys.argv[1]
 fig = plt.figure()
 h1 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
 
@@ -219,7 +219,7 @@ online_trig9_events = ak.Array([])
 online_trig10_events = ak.Array([])
 online_trig11_events = ak.Array([])
 
-for branches in uproot.iterate("MilliQan_Run1415.*_v34.root",["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal"],step_size=1000):
+for branches in uproot.iterate("{0}.root:t".format(path),["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal","fileNumber"],step_size=1000):
 
 
     #Open root file and ttree
@@ -239,6 +239,7 @@ for branches in uproot.iterate("MilliQan_Run1415.*_v34.root",["time","height","a
     #tTrigger = tree["tTrigger"].array(entry_stop=stop)
     #event = tree["event"].array(entry_stop=stop)
 
+    fileNumber = branches["fileNumber"]
     tTrigger = branches["tTrigger"]
     event = branches["event"]
     dynamicPedestal = branches["dynamicPedestal"]
@@ -292,63 +293,64 @@ for branches in uproot.iterate("MilliQan_Run1415.*_v34.root",["time","height","a
     layermask = layerdiff != 0   #pulse1.layer != pulse2.layer
     not_panels = (pulse1["type"] == 0) & (pulse2["type"] == 0)
 
-    
-    offline_trig1_chunk_events = offlineTrig1Check(pulse1,pulse2)
-    offline_trig2_chunk_events = offlineTrig2Check(pulse1,pulse2)
-    offline_trig3_chunk_events = offlineTrig3Check(pulse1,pulse2)
-    offline_trig4_chunk_events = offlineTrig4Check(pulse1,pulse2)
-    offline_trig5_chunk_events = offlineTrig5Check(pulses)
-    offline_trig7_chunk_events = offlineTrig7Check(pulses)
-    offline_trig9_chunk_events = offlineTrig9Check(pulses)
-    offline_trig10_chunk_events = offlineTrig10Check(pulse1,pulse2)
-    offline_trig11_chunk_events = offlineTrig11Check(pulse1,pulse2)
+    file_prefix = 1000*fileNumber[0] - 1000
 
-    offline_trig1_events = ak.concatenate([offline_trig1_events,offline_trig1_chunk_events])
-    offline_trig2_events = ak.concatenate([offline_trig2_events,offline_trig2_chunk_events])
-    offline_trig3_events = ak.concatenate([offline_trig3_events,offline_trig3_chunk_events])
-    offline_trig4_events = ak.concatenate([offline_trig4_events,offline_trig4_chunk_events])
-    offline_trig5_events = ak.concatenate([offline_trig5_events,offline_trig5_chunk_events])
-    offline_trig7_events = ak.concatenate([offline_trig7_events,offline_trig7_chunk_events])
-    offline_trig9_events = ak.concatenate([offline_trig9_events,offline_trig9_chunk_events])
-    offline_trig10_events = ak.concatenate([offline_trig10_events,offline_trig10_chunk_events])
-    offline_trig11_events = ak.concatenate([offline_trig11_events,offline_trig11_chunk_events])
+    offline_trig1_chunk_events = offlineTrig1Check(pulse1,pulse2) + file_prefix
+    offline_trig2_chunk_events = offlineTrig2Check(pulse1,pulse2) + file_prefix
+    offline_trig3_chunk_events = offlineTrig3Check(pulse1,pulse2) + file_prefix
+    offline_trig4_chunk_events = offlineTrig4Check(pulse1,pulse2) + file_prefix
+    offline_trig5_chunk_events = offlineTrig5Check(pulses) + file_prefix
+    offline_trig7_chunk_events = offlineTrig7Check(pulses) + file_prefix
+    offline_trig9_chunk_events = offlineTrig9Check(pulses) + file_prefix
+    offline_trig10_chunk_events = offlineTrig10Check(pulse1,pulse2) + file_prefix
+    offline_trig11_chunk_events = offlineTrig11Check(pulse1,pulse2) + file_prefix
+
+    offline_trig1_events = ak.concatenate([offline_trig1_chunk_events,offline_trig1_events]) 
+    offline_trig2_events = ak.concatenate([offline_trig2_chunk_events,offline_trig2_events])
+    offline_trig3_events = ak.concatenate([offline_trig3_chunk_events,offline_trig3_events])
+    offline_trig4_events = ak.concatenate([offline_trig4_chunk_events,offline_trig4_events])
+    offline_trig5_events = ak.concatenate([offline_trig5_chunk_events,offline_trig5_events])
+    offline_trig7_events = ak.concatenate([offline_trig7_chunk_events,offline_trig7_events])
+    offline_trig9_events = ak.concatenate([offline_trig9_chunk_events,offline_trig9_events])
+    offline_trig10_events = ak.concatenate([offline_trig10_chunk_events,offline_trig10_events])
+    offline_trig11_events = ak.concatenate([offline_trig11_chunk_events,offline_trig11_events])
 
 
     #Online trigger events
-    online_trig1_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-1] == '1'])]
-    online_trig2_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-2] == '1'])]
-    online_trig3_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-3] == '1'])]
-    online_trig4_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-4] == '1'])]
-    online_trig5_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-5] == '1'])]
-    #online_trig6_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-6] == '1'])]
-    online_trig7_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-7] == '1'])]
-    #online_trig8_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-8] == '1'])]
-    online_trig9_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-9] == '1'])]
-    online_trig10_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-10] == '1'])]
-    online_trig11_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-11] == '1'])]
-    #online_trig12_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-12] == '1'])]
-    online_trig13_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-13] == '1'])]
+    online_trig1_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-1] == '1'])] + file_prefix
+    online_trig2_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-2] == '1'])] + file_prefix
+    online_trig3_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-3] == '1'])] + file_prefix
+    online_trig4_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-4] == '1'])] + file_prefix
+    online_trig5_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-5] == '1'])] + file_prefix
+    #online_trig6_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-6] == '1'])] + file_prefix
+    online_trig7_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-7] == '1'])] + file_prefix
+    #online_trig8_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-8] == '1'])] + file_prefix
+    online_trig9_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-9] == '1'])] + file_prefix
+    online_trig10_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-10] == '1'])] + file_prefix
+    online_trig11_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-11] == '1'])] + file_prefix
+    #online_trig12_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-12] == '1'])] + file_prefix
+    online_trig13_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-13] == '1'])] + file_prefix
 
-    online_trig1_events = ak.concatenate([online_trig1_events,online_trig1_chunk_events])
-    online_trig2_events = ak.concatenate([online_trig2_events,online_trig2_chunk_events])
-    online_trig3_events = ak.concatenate([online_trig3_events,online_trig3_chunk_events])
-    online_trig4_events = ak.concatenate([online_trig4_events,online_trig4_chunk_events])
-    online_trig5_events = ak.concatenate([online_trig5_events,online_trig5_chunk_events])
-    online_trig7_events = ak.concatenate([online_trig7_events,online_trig7_chunk_events])
-    online_trig9_events = ak.concatenate([online_trig9_events,online_trig9_chunk_events])
-    online_trig10_events = ak.concatenate([online_trig10_events,online_trig10_chunk_events])
-    online_trig11_events = ak.concatenate([online_trig11_events,online_trig11_chunk_events])
+    online_trig1_events = ak.concatenate([online_trig1_chunk_events,online_trig1_events])
+    online_trig2_events = ak.concatenate([online_trig2_chunk_events,online_trig2_events])
+    online_trig3_events = ak.concatenate([online_trig3_chunk_events,online_trig3_events])
+    online_trig4_events = ak.concatenate([online_trig4_chunk_events,online_trig4_events])
+    online_trig5_events = ak.concatenate([online_trig5_chunk_events,online_trig5_events])
+    online_trig7_events = ak.concatenate([online_trig7_chunk_events,online_trig7_events])
+    online_trig9_events = ak.concatenate([online_trig9_chunk_events,online_trig9_events])
+    online_trig10_events = ak.concatenate([online_trig10_chunk_events,online_trig10_events])
+    online_trig11_events = ak.concatenate([online_trig11_chunk_events,online_trig11_events])
 
 #Offline efficiency = Offline and Online / Number offline
-eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),4))
-eff2 = str(round(len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])/len(offline_trig2_events),4))
-eff3 = str(round(len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])/len(offline_trig3_events),4))
-eff4 = str(round(len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])/len(offline_trig4_events),4))
-eff5 = str(round(len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])/len(offline_trig5_events),4))
-eff7 = str(round(len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])/len(offline_trig7_events),4))
-eff9 = str(round(len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])/len(offline_trig9_events),4))
-eff10 = str(round(len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])/len(offline_trig10_events),4))
-eff11 = str(round(len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])/len(offline_trig11_events),4))
+eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),6))
+eff2 = str(round(len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])/len(offline_trig2_events),6))
+eff3 = str(round(len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])/len(offline_trig3_events),6))
+eff4 = str(round(len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])/len(offline_trig4_events),6))
+eff5 = str(round(len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])/len(offline_trig5_events),6))
+eff7 = str(round(len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])/len(offline_trig7_events),6))
+eff9 = str(round(len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])/len(offline_trig9_events),6))
+eff10 = str(round(len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])/len(offline_trig10_events),6))
+eff11 = str(round(len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])/len(offline_trig11_events),6))
 
 #print("Offline trig1 events ",ak.to_list(offline_trig1_events),"\n")
 #print("Online trig1 events",ak.to_list(online_trig1_events),"\n")
@@ -373,6 +375,22 @@ print("Front/BackPanels".ljust(18),str(len(online_trig11_events)).ljust(18),str(
 #print("Offline trig2 events that are not found online ",ak.to_list(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events,invert=True)]))
 #print("Online trig1 events that are not found offline ",ak.to_list(online_trig1_events[np.isin(online_trig1_events,offline_trig1_events,invert=True)]))
 #print("Online trig2 events that are not found offline ",ak.to_list(online_trig2_events[np.isin(online_trig2_events,offline_trig2_events,invert=True)]))
+
+with open("trig1offline_py.txt","w") as outfile:
+    for t1offevent in offline_trig1_events:
+        outfile.write(f"{t1offevent}\n")
+
+with open("trig1online_py.txt","w") as outfile:
+    for t1onevent in online_trig1_events:
+        outfile.write(f"{t1onevent}\n")
+
+with open("trig2offline_py.txt","w") as outfile:
+    for t2offevent in offline_trig2_events:
+        outfile.write(f"{t2offevent}\n")
+
+with open("trig2online_py.txt","w") as outfile:
+    for t2onevent in online_trig2_events:
+        outfile.write(f"{t2onevent}\n")
 
 h1.plot()
 plt.show()
