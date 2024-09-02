@@ -72,7 +72,7 @@ def offlineTrig1Check(pulse1,pulse2):
         [min11 == minarray, min12 == minarray, min13 == minarray, min14 == minarray], 
         axis=0
     )
-
+    
     indices = ak.zeros_like(minarray)
     indices = ak.where(which_min == 0, argmin11, indices)
     indices = ak.where(which_min == 1, argmin12, indices)
@@ -239,7 +239,7 @@ def natural_sort_key(s):
 
 path = sys.argv[1]
 files = sorted(glob.glob("{0}.root".format(path)), key=natural_sort_key)
-print(files)
+#print(files)
 fig = plt.figure()
 h1 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
 
@@ -264,7 +264,7 @@ online_trig10_events = ak.Array([])
 online_trig11_events = ak.Array([])
 
 files_with_trees = {file_name: "t;1" for file_name in files}
-print(files_with_trees)
+#print(files_with_trees)
 
 for branches in uproot.iterate(files_with_trees,["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal","fileNumber"],step_size=1000):
 
@@ -416,6 +416,7 @@ print("topPanels".ljust(18),str(len(online_trig9_events)).ljust(18),str(len(offl
 print("topPanelsBotBars".ljust(18),str(len(online_trig10_events)).ljust(18),str(len(offline_trig10_events)).ljust(18),eff10.ljust(18))
 print("Front/BackPanels".ljust(18),str(len(online_trig11_events)).ljust(18),str(len(offline_trig11_events)).ljust(18),eff11.ljust(18))
 
+print("Testing ")
 
 
 #print("Offline trig1 events that are not found online ",ak.to_list(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events,invert=True)]))
