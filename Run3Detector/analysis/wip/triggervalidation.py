@@ -262,6 +262,7 @@ online_trig7_events = ak.Array([])
 online_trig9_events = ak.Array([])
 online_trig10_events = ak.Array([])
 online_trig11_events = ak.Array([])
+online_trig13_events = ak.Array([])
 
 files_with_trees = {file_name: "t;1" for file_name in files}
 #print(files_with_trees)
@@ -388,6 +389,7 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     online_trig9_events = ak.concatenate([online_trig9_events,online_trig9_chunk_events])
     online_trig10_events = ak.concatenate([online_trig10_events,online_trig10_chunk_events])
     online_trig11_events = ak.concatenate([online_trig11_events,online_trig11_chunk_events])
+    online_trig13_events = ak.concatenate([online_trig13_events,online_trig13_chunk_events])
 
 #Offline efficiency = Offline and Online / Number offline
 eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),6))
@@ -426,6 +428,7 @@ print("gtNHits".ljust(18),str(len(online_trig7_events)).ljust(18),str(len(offlin
 print("topPanels".ljust(18),str(len(online_trig9_events)).ljust(18),str(len(offline_trig9_events)).ljust(18),eff9+" +- "+str(eff9unc).ljust(18))
 print("topPanelsBotBars".ljust(18),str(len(online_trig10_events)).ljust(18),str(len(offline_trig10_events)).ljust(18),eff10+" +- "+str(eff10unc).ljust(18))
 print("Front/BackPanels".ljust(18),str(len(online_trig11_events)).ljust(18),str(len(offline_trig11_events)).ljust(18),eff11+" +- "+str(eff11unc).ljust(18))
+print("Zerobias".ljust(18),str(len(online_trig13_events)).ljust(18),"N/A".ljust(18),"N/A".ljust(18))
 
 
 #print("Offline trig1 events that are not found online ",ak.to_list(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events,invert=True)]))
