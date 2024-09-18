@@ -264,6 +264,17 @@ online_trig10_events = ak.Array([])
 online_trig11_events = ak.Array([])
 online_trig13_events = ak.Array([])
 
+empty_trig1_events = ak.Array([])
+empty_trig2_events = ak.Array([])
+empty_trig3_events = ak.Array([])
+empty_trig4_events = ak.Array([])
+empty_trig5_events = ak.Array([])
+empty_trig7_events = ak.Array([])
+empty_trig9_events = ak.Array([])
+empty_trig10_events = ak.Array([])
+empty_trig11_events = ak.Array([])
+empty_trig13_events = ak.Array([])
+
 files_with_trees = {file_name: "t;1" for file_name in files}
 #print(files_with_trees)
 
@@ -294,6 +305,10 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
 
     matched_mask = tTrigger != -1  #Require matched triggers
     non_empty_mask = ak.num(branches["chan"]) > 0
+    is_empty_mask = ak.num(branches["chan"]) == 0
+    empty_branches = branches[is_empty_mask]
+    empty_event = event[is_empty_mask]
+    empty_tTrigger = tTrigger[is_empty_mask]
     branches = branches[matched_mask & non_empty_mask]
     dynamicPedestal = dynamicPedestal[matched_mask & non_empty_mask]
     tTrigger = tTrigger[matched_mask & non_empty_mask]
@@ -303,6 +318,8 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     bin_rep_vec = np.vectorize(np.binary_repr)
     trig_np = ak.to_numpy(tTrigger).astype(int)
     triggerbits = bin_rep_vec(trig_np,width=13)
+    empty_trig_np = ak.to_numpy(empty_tTrigger).astype(int)
+    empty_triggerbits = bin_rep_vec(empty_trig_np,width=13)
 
     #Now zip all these pulse shaped branches together into a record called pulses
     pulses = ak.zip(
@@ -391,6 +408,31 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     online_trig11_events = ak.concatenate([online_trig11_events,online_trig11_chunk_events])
     online_trig13_events = ak.concatenate([online_trig13_events,online_trig13_chunk_events])
 
+    #Empty events
+    empty_trig1_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-1] == '1'],dtype=int)] + file_prefix
+    empty_trig2_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-2] == '1'],dtype=int)] + file_prefix
+    empty_trig3_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-3] == '1'],dtype=int)] + file_prefix
+    empty_trig4_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-4] == '1'],dtype=int)] + file_prefix
+    empty_trig5_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-5] == '1'],dtype=int)] + file_prefix
+    empty_trig7_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-7] == '1'],dtype=int)] + file_prefix
+    empty_trig9_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-9] == '1'],dtype=int)] + file_prefix
+    empty_trig10_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-10] == '1'],dtype=int)] + file_prefix
+    empty_trig11_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-11] == '1'],dtype=int)] + file_prefix
+    empty_trig13_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-13] == '1'],dtype=int)] + file_prefix
+
+    empty_trig1_events = ak.concatenate([empty_trig1_events,empty_trig1_chunk_events])
+    empty_trig2_events = ak.concatenate([empty_trig2_events,empty_trig2_chunk_events])
+    empty_trig3_events = ak.concatenate([empty_trig3_events,empty_trig3_chunk_events])
+    empty_trig4_events = ak.concatenate([empty_trig4_events,empty_trig4_chunk_events])
+    empty_trig5_events = ak.concatenate([empty_trig5_events,empty_trig5_chunk_events])
+    empty_trig7_events = ak.concatenate([empty_trig7_events,empty_trig7_chunk_events])
+    empty_trig9_events = ak.concatenate([empty_trig9_events,empty_trig9_chunk_events])
+    empty_trig10_events = ak.concatenate([empty_trig10_events,empty_trig10_chunk_events])
+    empty_trig11_events = ak.concatenate([empty_trig11_events,empty_trig11_chunk_events])
+    empty_trig13_events = ak.concatenate([empty_trig13_events,empty_trig13_chunk_events])
+
+    
+
 #Offline efficiency = Offline and Online / Number offline
 eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),6))
 eff2 = str(round(len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])/len(offline_trig2_events),6))
@@ -412,23 +454,36 @@ eff9unc = round(float(eff9) * np.sqrt( (9/len(offline_trig9_events[np.isin(offli
 eff10unc = round(float(eff10) * np.sqrt( (10/len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])) + (10/len(offline_trig10_events)) ),6)
 eff11unc = round(float(eff11) * np.sqrt( (11/len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])) + (11/len(offline_trig11_events)) ),6)
 
+frac_t1_empty = round(len(empty_trig1_events) / (len(empty_trig1_events) + len(online_trig1_events)),5)
+frac_t2_empty = round(len(empty_trig2_events) / (len(empty_trig2_events) + len(online_trig2_events)),5)
+frac_t3_empty = round(len(empty_trig3_events) / (len(empty_trig3_events) + len(online_trig3_events)),5)
+frac_t4_empty = round(len(empty_trig4_events) / (len(empty_trig4_events) + len(online_trig4_events)),5)
+frac_t5_empty = round(len(empty_trig5_events) / (len(empty_trig5_events) + len(online_trig5_events)),5)
+frac_t7_empty = round(len(empty_trig7_events) / (len(empty_trig7_events) + len(online_trig7_events)),5)
+frac_t9_empty = round(len(empty_trig9_events) / (len(empty_trig9_events) + len(online_trig9_events)),5)
+frac_t10_empty = round(len(empty_trig10_events) / (len(empty_trig10_events) + len(online_trig10_events)),5)
+frac_t11_empty = round(len(empty_trig11_events) / (len(empty_trig11_events) + len(online_trig11_events)),5)
+frac_t13_empty = round(len(empty_trig13_events) / (len(empty_trig13_events) + len(online_trig13_events)),5)
+
+
+
 #print("Offline trig1 events ",ak.to_list(offline_trig1_events),"\n")
 #print("Online trig1 events",ak.to_list(online_trig1_events),"\n")
 #print("Offline trig2 events",ak.to_list(offline_trig2_events),"\n")
 #print("Online trig2 events",ak.to_list(online_trig2_events),"\n")
 
-print("Trigger Name".ljust(18),"nOnline".ljust(18),"nOffline".ljust(18),"Offline Efficiency".ljust(18))
-print("-"*74)
-print("FourLayersHit".ljust(18),str(len(online_trig1_events)).ljust(18),str(len(offline_trig1_events)).ljust(18),eff1+" +- "+str(eff1unc).ljust(18))
-print("threeInaRow".ljust(18),str(len(online_trig2_events)).ljust(18),str(len(offline_trig2_events)).ljust(18),eff2+" +- "+str(eff2unc).ljust(18))
-print("twoSeparatedLayers".ljust(18),str(len(online_trig3_events)).ljust(18),str(len(offline_trig3_events)).ljust(18),eff3+" +- "+str(eff3unc).ljust(18))
-print("twoAdjacentLayers".ljust(18),str(len(online_trig4_events)).ljust(18),str(len(offline_trig4_events)).ljust(18),eff4+" +- "+str(eff4unc).ljust(18))
-print("NLayersHit".ljust(18),str(len(online_trig5_events)).ljust(18),str(len(offline_trig5_events)).ljust(18),eff5+" +- "+str(eff5unc).ljust(18))
-print("gtNHits".ljust(18),str(len(online_trig7_events)).ljust(18),str(len(offline_trig7_events)).ljust(18),eff7+" +- "+str(eff7unc).ljust(18))
-print("topPanels".ljust(18),str(len(online_trig9_events)).ljust(18),str(len(offline_trig9_events)).ljust(18),eff9+" +- "+str(eff9unc).ljust(18))
-print("topPanelsBotBars".ljust(18),str(len(online_trig10_events)).ljust(18),str(len(offline_trig10_events)).ljust(18),eff10+" +- "+str(eff10unc).ljust(18))
-print("Front/BackPanels".ljust(18),str(len(online_trig11_events)).ljust(18),str(len(offline_trig11_events)).ljust(18),eff11+" +- "+str(eff11unc).ljust(18))
-print("Zerobias".ljust(18),str(len(online_trig13_events)).ljust(18),"N/A".ljust(18),"N/A".ljust(18))
+print("Trigger Name".ljust(22),"nOnline".ljust(22),"nOffline".ljust(22),"Offline Efficiency".ljust(22),"Fraction Empty".ljust(22))
+print("-"*105)
+print("FourLayersHit".ljust(22),str(len(online_trig1_events)).ljust(22),str(len(offline_trig1_events)).ljust(22),(eff1+" +- "+str(eff1unc)).ljust(22),str(frac_t1_empty).ljust(22))
+print("threeInaRow".ljust(22),str(len(online_trig2_events)).ljust(22),str(len(offline_trig2_events)).ljust(22),(eff2+" +- "+str(eff2unc)).ljust(22),str(frac_t2_empty))
+print("twoSeparatedLayers".ljust(22),str(len(online_trig3_events)).ljust(22),str(len(offline_trig3_events)).ljust(22),(eff3+" +- "+str(eff3unc)).ljust(22),str(frac_t3_empty))
+print("twoAdjacentLayers".ljust(22),str(len(online_trig4_events)).ljust(22),str(len(offline_trig4_events)).ljust(22),(eff4+" +- "+str(eff4unc)).ljust(22),str(frac_t4_empty))
+print("NLayersHit".ljust(22),str(len(online_trig5_events)).ljust(22),str(len(offline_trig5_events)).ljust(22),(eff5+" +- "+str(eff5unc)).ljust(22),str(frac_t5_empty))
+print("gtNHits".ljust(22),str(len(online_trig7_events)).ljust(22),str(len(offline_trig7_events)).ljust(22),(eff7+" +- "+str(eff7unc)).ljust(22),str(frac_t7_empty))
+print("topPanels".ljust(22),str(len(online_trig9_events)).ljust(22),str(len(offline_trig9_events)).ljust(22),(eff9+" +- "+str(eff9unc)).ljust(22),str(frac_t9_empty))
+print("topPanelsBotBars".ljust(22),str(len(online_trig10_events)).ljust(22),str(len(offline_trig10_events)).ljust(22),(eff10+" +- "+str(eff10unc)).ljust(22),str(frac_t10_empty))
+print("Front/BackPanels".ljust(22),str(len(online_trig11_events)).ljust(22),str(len(offline_trig11_events)).ljust(22),(eff11+" +- "+str(eff11unc)).ljust(22),str(frac_t11_empty))
+print("Zerobias".ljust(22),str(len(online_trig13_events)).ljust(22),"N/A".ljust(22),"N/A".ljust(22),str(frac_t13_empty))
 
 
 #print("Offline trig1 events that are not found online ",ak.to_list(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events,invert=True)]))
@@ -453,7 +508,7 @@ with open("trig2online_py.txt","w") as outfile:
         outfile.write(f"{t2onevent}\n")
 
 with open(f"efficiency_files/run{runNumber[0]}.txt","w") as outfile:
-    outfile.write(f"{runNumber[0]} {eff1} {eff1unc} {eff2} {eff2unc}\n")
+    outfile.write(f"{runNumber[0]} {eff1} {eff1unc} {frac_t1_empty} {eff2} {eff2unc} {frac_t2_empty} {frac_t13_empty}\n")
 
 
 #h1.plot()
