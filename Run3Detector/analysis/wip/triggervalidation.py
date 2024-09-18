@@ -292,10 +292,11 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     dynamicPedestal = branches["dynamicPedestal"]
 
     matched_mask = tTrigger != -1  #Require matched triggers
-    branches = branches[matched_mask]
-    dynamicPedestal = dynamicPedestal[matched_mask]
-    tTrigger = tTrigger[matched_mask]
-    event = event[matched_mask]
+    non_empty_mask = ak.num(branches["chan"]) > 0
+    branches = branches[matched_mask & non_empty_mask]
+    dynamicPedestal = dynamicPedestal[matched_mask & non_empty_mask]
+    tTrigger = tTrigger[matched_mask & non_empty_mask]
+    event = event[matched_mask & non_empty_mask]
 
     #Turn the decimal tTrigger branch into an array of bitstrings
     bin_rep_vec = np.vectorize(np.binary_repr)
