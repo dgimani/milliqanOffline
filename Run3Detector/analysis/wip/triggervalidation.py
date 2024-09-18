@@ -266,7 +266,7 @@ online_trig11_events = ak.Array([])
 files_with_trees = {file_name: "t;1" for file_name in files}
 #print(files_with_trees)
 
-for branches in uproot.iterate(files_with_trees,["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal","fileNumber"],step_size=1000):
+for branches in uproot.iterate(files_with_trees,["time","height","area","row","column","layer","chan","type","event","tTrigger","dynamicPedestal","fileNumber","runNumber"],step_size=1000):
 
 
     #Open root file and ttree
@@ -285,7 +285,7 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
 
     #tTrigger = tree["tTrigger"].array(entry_stop=stop)
     #event = tree["event"].array(entry_stop=stop)
-
+    runNumber = branches["runNumber"]
     fileNumber = branches["fileNumber"]
     tTrigger = branches["tTrigger"]
     event = branches["event"]
@@ -364,19 +364,19 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
 
 
     #Online trigger events
-    online_trig1_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-1] == '1'])] + file_prefix
-    online_trig2_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-2] == '1'])] + file_prefix
-    online_trig3_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-3] == '1'])] + file_prefix
-    online_trig4_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-4] == '1'])] + file_prefix
-    online_trig5_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-5] == '1'])] + file_prefix
-    #online_trig6_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-6] == '1'])] + file_prefix
-    online_trig7_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-7] == '1'])] + file_prefix
-    #online_trig8_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-8] == '1'])] + file_prefix
-    online_trig9_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-9] == '1'])] + file_prefix
-    online_trig10_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-10] == '1'])] + file_prefix
-    online_trig11_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-11] == '1'])] + file_prefix
-    #online_trig12_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-12] == '1'])] + file_prefix
-    online_trig13_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-13] == '1'])] + file_prefix
+    online_trig1_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-1] == '1'],dtype=int)] + file_prefix
+    online_trig2_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-2] == '1'],dtype=int)] + file_prefix
+    online_trig3_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-3] == '1'],dtype=int)] + file_prefix
+    online_trig4_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-4] == '1'],dtype=int)] + file_prefix
+    online_trig5_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-5] == '1'],dtype=int)] + file_prefix
+    #online_trig6_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-6] == '1'],dtype=int)] + file_prefix
+    online_trig7_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-7] == '1'],dtype=int)] + file_prefix
+    #online_trig8_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-8] == '1'],dtype=int)] + file_prefix
+    online_trig9_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-9] == '1'],dtype=int)] + file_prefix
+    online_trig10_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-10] == '1'],dtype=int)] + file_prefix
+    online_trig11_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-11] == '1'],dtype=int)] + file_prefix
+    #online_trig12_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-12] == '1'],dtype=int)] + file_prefix
+    online_trig13_chunk_events = event[np.array([i for i, bit in enumerate(triggerbits) if bit[-13] == '1'],dtype=int)] + file_prefix
 
     online_trig1_events = ak.concatenate([online_trig1_events,online_trig1_chunk_events])
     online_trig2_events = ak.concatenate([online_trig2_events,online_trig2_chunk_events])
@@ -416,8 +416,6 @@ print("topPanels".ljust(18),str(len(online_trig9_events)).ljust(18),str(len(offl
 print("topPanelsBotBars".ljust(18),str(len(online_trig10_events)).ljust(18),str(len(offline_trig10_events)).ljust(18),eff10.ljust(18))
 print("Front/BackPanels".ljust(18),str(len(online_trig11_events)).ljust(18),str(len(offline_trig11_events)).ljust(18),eff11.ljust(18))
 
-print("Testing ")
-
 
 #print("Offline trig1 events that are not found online ",ak.to_list(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events,invert=True)]))
 #print("Offline trig2 events that are not found online ",ak.to_list(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events,invert=True)]))
@@ -440,5 +438,13 @@ with open("trig2online_py.txt","w") as outfile:
     for t2onevent in online_trig2_events:
         outfile.write(f"{t2onevent}\n")
 
-h1.plot()
-plt.show()
+with open(f"efficiency_files/run{runNumber[0]}.txt","w") as outfile:
+    outfile.write(f"{runNumber[0]} {eff1} {eff2}\n")
+
+
+#h1.plot()
+#plt.show()
+
+
+
+
