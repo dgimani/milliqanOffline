@@ -195,19 +195,84 @@ def offlineTrig4Check(pulse1,pulse2):
     offline_trig4_events = event[ak.any(twoAdjacentLayers_mask,axis=1)]
     return offline_trig4_events
 
-#NEED TO REWORK THE FOLLOWING TRIGGER CHECKS IF TIMING WINDOW APPLIES TO THEM AS WELL
+
 #============================N Layers Hit================================================
-def offlineTrig5Check(pulses):
-    nLayers = np.array([len(np.unique(row)) for row in ak.to_list(pulses.layer[pulses["type"] == 0 ])])
-    nLayers_mask = nLayers >= 3
-    offline_trig5_events = event[nLayers_mask]
+def offlineTrig5Check(pulse1,pulse2):
+    pulse1_filtered = pulse1[timemask & layermask]
+    pulse2_filtered = pulse2[timemask & layermask]
+
+    #Pairs of filtered pulses
+    filtered_pairs = ak.zip([pulse1_filtered,pulse2_filtered])
+
+    #Now we take the pair of pulses and form pairs of those pairs
+    pairpairs = ak.combinations(filtered_pairs,2)
+
+    pair1, pair2 = ak.unzip(pairpairs)
+
+    pair1_pulse1,pair1_pulse2 = ak.unzip(pair1)
+    pair2_pulse1,pair2_pulse2 = ak.unzip(pair2)
+
+    #Now create masks that check whether all four pulses from each pair are within 150ns of each other. (Can't seem to take min or max between awkward arrays elementwise.)
+    #Note: we must also require the pulse time difference is not zero to remove duplicate pulses, provided that they in fact are duplicates. Check the channel to make sure they aren't just pulses from 
+    #different channels arriving at the same time.
+    aaba = (np.abs(pair1_pulse1.time - pair2_pulse1.time) <= window) & ( (pair1_pulse1.chan != pair2_pulse1.chan) | (np.abs(pair1_pulse1.time - pair2_pulse1.time) != 0) )
+    aabb = (np.abs(pair1_pulse1.time - pair2_pulse2.time) <= window) & ( (pair1_pulse1.chan != pair2_pulse2.chan) | (np.abs(pair1_pulse1.time - pair2_pulse2.time) != 0) )
+    abba = (np.abs(pair1_pulse2.time - pair2_pulse1.time) <= window) & ( (pair1_pulse2.chan != pair2_pulse1.chan) | (np.abs(pair1_pulse2.time - pair2_pulse1.time) != 0) )   #see that girl...
+    abbb = (np.abs(pair1_pulse2.time - pair2_pulse2.time) <= window) & ( (pair1_pulse2.chan != pair2_pulse2.chan) | (np.abs(pair1_pulse2.time - pair2_pulse2.time) != 0) )
+
+    #Require that at least three of the pulses be within the time window. Note that we already know pair1pulse1 and pair2pulse2 satisfy the window, ditto for pair2pulse1 and pair2pulse2
+    time_123 = abba & aaba
+    time_124 = aabb & abbb
+    time_234 = abba & abbb
+    time_134 = aaba & aabb
+
+    #There are four different ways to have three different layers. Note that we have already required that pair1_pulse1 and pair1_pulse2 be in different layers from the first pairing, same for cand3 and cand4.
+    diff_layer123 =  ((pair1_pulse1.layer != pair2_pulse1.layer) &
+                    (pair1_pulse2.layer != pair2_pulse1.layer))
+    diff_layer124 =  ((pair1_pulse1.layer != pair2_pulse2.layer) &
+                    (pair1_pulse2.layer != pair2_pulse2.layer))
+    diff_layer234 =  ((pair1_pulse2.layer != pair2_pulse1.layer) & 
+                    (pair1_pulse2.layer != pair2_pulse2.layer))
+    diff_layer134 =  ((pair1_pulse1.layer != pair2_pulse1.layer) & 
+                    (pair1_pulse1.layer != pair2_pulse2.layer))
+
+    #We now have four possible candidate three layers combinations, we take the OR of them to allow any of them to be true
+    trig5cand1 = time_123 & diff_layer123
+    trig5cand2 = time_124 & diff_layer124
+    trig5cand3 = time_234 & diff_layer234
+    trig5cand4 = time_134 & diff_layer134
+    nLayers_mask = trig5cand1 | trig5cand2 | trig5cand3 | trig5cand4
+
+    offline_trig5_events = event[ak.any(nLayers_mask,axis=1)]
     return offline_trig5_events
 
 #============================Greater than N Hits=========================================
-nHit = 3
-def offlineTrig7Check(pulses):
-    numPulses = ak.num(pulses)
-    gtNHits_mask = numPulses >= nHit + 1
+#We assume nHit = 3 so that we are always checking for at least 4 in time pulses. If nHit changes, will need to edit this code.
+def offlineTrig7Check(pulse1,pulse2):
+    #Filter out the paired pulses which are not in time.
+    pulse1_filtered = pulse1[timemask]
+    pulse2_filtered = pulse2[timemask]
+
+    #Pairs of filtered pulses
+    filtered_pairs = ak.zip([pulse1_filtered,pulse2_filtered])
+
+    #Now we take the pair of pulses and form pairs of those pairs
+    pairpairs = ak.combinations(filtered_pairs,2)
+
+    pair1, pair2 = ak.unzip(pairpairs)
+
+    pair1_pulse1,pair1_pulse2 = ak.unzip(pair1)
+    pair2_pulse1,pair2_pulse2 = ak.unzip(pair2)
+
+    #Now create masks that check whether all four pulses from each pair are within 150ns of each other. (Can't seem to take min or max between awkward arrays elementwise.)
+    aaba = np.abs(pair1_pulse1.time - pair2_pulse1.time) <= window
+    aabb = np.abs(pair1_pulse1.time - pair2_pulse2.time) <= window
+    abba = np.abs(pair1_pulse2.time - pair2_pulse1.time) <= window    #see that girl...
+    abbb = np.abs(pair1_pulse2.time - pair2_pulse2.time) <= window
+
+    window_mask = aaba & aabb & abba & abbb     #Require that they all be true in order for all four pulses to be in a common window.
+
+    gtNHits_mask = ak.any(window_mask,axis=1)
     offline_trig7_events = event[gtNHits_mask]
     return offline_trig7_events
 
@@ -365,8 +430,8 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     offline_trig2_chunk_events = offlineTrig2Check(pulse1,pulse2) + file_prefix
     offline_trig3_chunk_events = offlineTrig3Check(pulse1,pulse2) + file_prefix
     offline_trig4_chunk_events = offlineTrig4Check(pulse1,pulse2) + file_prefix
-    offline_trig5_chunk_events = offlineTrig5Check(pulses) + file_prefix
-    offline_trig7_chunk_events = offlineTrig7Check(pulses) + file_prefix
+    offline_trig5_chunk_events = offlineTrig5Check(pulse1,pulse2) + file_prefix
+    offline_trig7_chunk_events = offlineTrig7Check(pulse1,pulse2) + file_prefix
     offline_trig9_chunk_events = offlineTrig9Check(pulses) + file_prefix
     offline_trig10_chunk_events = offlineTrig10Check(pulse1,pulse2) + file_prefix
     offline_trig11_chunk_events = offlineTrig11Check(pulse1,pulse2) + file_prefix
