@@ -399,6 +399,16 @@ eff9 = str(round(len(offline_trig9_events[np.isin(offline_trig9_events,online_tr
 eff10 = str(round(len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])/len(offline_trig10_events),6))
 eff11 = str(round(len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])/len(offline_trig11_events),6))
 
+eff1unc = round(float(eff1) * np.sqrt( (1/len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])) + (1/len(offline_trig1_events)) ),6)
+eff2unc = round(float(eff2) * np.sqrt( (2/len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])) + (2/len(offline_trig2_events)) ),6)
+eff3unc = round(float(eff3) * np.sqrt( (3/len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])) + (3/len(offline_trig3_events)) ),6)
+eff4unc = round(float(eff4) * np.sqrt( (4/len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])) + (4/len(offline_trig4_events)) ),6)
+eff5unc = round(float(eff5) * np.sqrt( (5/len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])) + (5/len(offline_trig5_events)) ),6)
+eff7unc = round(float(eff7) * np.sqrt( (7/len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])) + (7/len(offline_trig7_events)) ),6)
+eff9unc = round(float(eff9) * np.sqrt( (9/len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])) + (9/len(offline_trig9_events)) ),6)
+eff10unc = round(float(eff10) * np.sqrt( (10/len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])) + (10/len(offline_trig10_events)) ),6)
+eff11unc = round(float(eff11) * np.sqrt( (11/len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])) + (11/len(offline_trig11_events)) ),6)
+
 #print("Offline trig1 events ",ak.to_list(offline_trig1_events),"\n")
 #print("Online trig1 events",ak.to_list(online_trig1_events),"\n")
 #print("Offline trig2 events",ak.to_list(offline_trig2_events),"\n")
@@ -406,15 +416,15 @@ eff11 = str(round(len(offline_trig11_events[np.isin(offline_trig11_events,online
 
 print("Trigger Name".ljust(18),"nOnline".ljust(18),"nOffline".ljust(18),"Offline Efficiency".ljust(18))
 print("-"*74)
-print("FourLayersHit".ljust(18),str(len(online_trig1_events)).ljust(18),str(len(offline_trig1_events)).ljust(18),eff1.ljust(18))
-print("threeInaRow".ljust(18),str(len(online_trig2_events)).ljust(18),str(len(offline_trig2_events)).ljust(18),eff2.ljust(18))
-print("twoSeparatedLayers".ljust(18),str(len(online_trig3_events)).ljust(18),str(len(offline_trig3_events)).ljust(18),eff3.ljust(18))
-print("twoAdjacentLayers".ljust(18),str(len(online_trig4_events)).ljust(18),str(len(offline_trig4_events)).ljust(18),eff4.ljust(18))
-print("NLayersHit".ljust(18),str(len(online_trig5_events)).ljust(18),str(len(offline_trig5_events)).ljust(18),eff5.ljust(18))
-print("gtNHits".ljust(18),str(len(online_trig7_events)).ljust(18),str(len(offline_trig7_events)).ljust(18),eff7.ljust(18))
-print("topPanels".ljust(18),str(len(online_trig9_events)).ljust(18),str(len(offline_trig9_events)).ljust(18),eff9.ljust(18))
-print("topPanelsBotBars".ljust(18),str(len(online_trig10_events)).ljust(18),str(len(offline_trig10_events)).ljust(18),eff10.ljust(18))
-print("Front/BackPanels".ljust(18),str(len(online_trig11_events)).ljust(18),str(len(offline_trig11_events)).ljust(18),eff11.ljust(18))
+print("FourLayersHit".ljust(18),str(len(online_trig1_events)).ljust(18),str(len(offline_trig1_events)).ljust(18),eff1+" +- "+str(eff1unc).ljust(18))
+print("threeInaRow".ljust(18),str(len(online_trig2_events)).ljust(18),str(len(offline_trig2_events)).ljust(18),eff2+" +- "+str(eff2unc).ljust(18))
+print("twoSeparatedLayers".ljust(18),str(len(online_trig3_events)).ljust(18),str(len(offline_trig3_events)).ljust(18),eff3+" +- "+str(eff3unc).ljust(18))
+print("twoAdjacentLayers".ljust(18),str(len(online_trig4_events)).ljust(18),str(len(offline_trig4_events)).ljust(18),eff4+" +- "+str(eff4unc).ljust(18))
+print("NLayersHit".ljust(18),str(len(online_trig5_events)).ljust(18),str(len(offline_trig5_events)).ljust(18),eff5+" +- "+str(eff5unc).ljust(18))
+print("gtNHits".ljust(18),str(len(online_trig7_events)).ljust(18),str(len(offline_trig7_events)).ljust(18),eff7+" +- "+str(eff7unc).ljust(18))
+print("topPanels".ljust(18),str(len(online_trig9_events)).ljust(18),str(len(offline_trig9_events)).ljust(18),eff9+" +- "+str(eff9unc).ljust(18))
+print("topPanelsBotBars".ljust(18),str(len(online_trig10_events)).ljust(18),str(len(offline_trig10_events)).ljust(18),eff10+" +- "+str(eff10unc).ljust(18))
+print("Front/BackPanels".ljust(18),str(len(online_trig11_events)).ljust(18),str(len(offline_trig11_events)).ljust(18),eff11+" +- "+str(eff11unc).ljust(18))
 
 
 #print("Offline trig1 events that are not found online ",ak.to_list(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events,invert=True)]))
@@ -439,7 +449,7 @@ with open("trig2online_py.txt","w") as outfile:
         outfile.write(f"{t2onevent}\n")
 
 with open(f"efficiency_files/run{runNumber[0]}.txt","w") as outfile:
-    outfile.write(f"{runNumber[0]} {eff1} {eff2}\n")
+    outfile.write(f"{runNumber[0]} {eff1} {eff1unc} {eff2} {eff2unc}\n")
 
 
 #h1.plot()
