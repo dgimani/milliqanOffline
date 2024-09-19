@@ -509,7 +509,7 @@ if(len(offline_trig1_events) != 0):
     onoff_frac_1 = str(round(len(online_trig1_events)/len(offline_trig1_events),6))
 else: 
     eff1 = "N/A"
-    eff1unc = ""
+    eff1unc = "N/A"
     onoff_frac_1 = "N/A"
 
 if(len(offline_trig2_events) != 0):
@@ -519,7 +519,7 @@ if(len(offline_trig2_events) != 0):
     onoff_frac_2 = str(round(len(online_trig2_events)/len(offline_trig2_events),6))
 else: 
     eff2 = "N/A"
-    eff2unc = ""
+    eff2unc = "N/A"
     onoff_frac_2 = "N/A"
 
 if(len(offline_trig3_events) != 0):
@@ -529,7 +529,7 @@ if(len(offline_trig3_events) != 0):
     onoff_frac_3 = str(round(len(online_trig3_events)/len(offline_trig3_events),6))
 else: 
     eff3 = "N/A"
-    eff3unc = ""
+    eff3unc = "N/A"
     onoff_frac_3 = "N/A"
 
 if(len(offline_trig4_events) != 0):
@@ -539,7 +539,7 @@ if(len(offline_trig4_events) != 0):
     onoff_frac_4 = str(round(len(online_trig4_events)/len(offline_trig4_events),6))
 else: 
     eff4 = "N/A"
-    eff4unc = ""
+    eff4unc = "N/A"
     onoff_frac_4 = "N/A"
 
 if(len(offline_trig5_events) != 0):
@@ -549,7 +549,7 @@ if(len(offline_trig5_events) != 0):
     onoff_frac_5 = str(round(len(online_trig5_events)/len(offline_trig5_events),6))
 else: 
     eff5 = "N/A"
-    eff5unc = ""
+    eff5unc = "N/A"
     onoff_frac_5 = "N/A"
 
 if(len(offline_trig7_events) != 0):
@@ -559,7 +559,7 @@ if(len(offline_trig7_events) != 0):
     onoff_frac_7 = str(round(len(online_trig7_events)/len(offline_trig7_events),6))
 else: 
     eff7 = "N/A"
-    eff7unc = ""
+    eff7unc = "N/A"
     onoff_frac_7 = "N/A"
 
 if(len(offline_trig9_events) != 0):
@@ -569,7 +569,7 @@ if(len(offline_trig9_events) != 0):
     onoff_frac_9 = str(round(len(online_trig9_events)/len(offline_trig9_events),6))
 else: 
     eff9 = "N/A"
-    eff9unc = ""
+    eff9unc = "N/A"
     onoff_frac_9 = "N/A"
 
 if(len(offline_trig10_events) != 0):
@@ -579,7 +579,7 @@ if(len(offline_trig10_events) != 0):
     onoff_frac_10 = str(round(len(online_trig10_events)/len(offline_trig10_events),6))
 else: 
     eff10 = "N/A"
-    eff10unc = ""
+    eff10unc = "N/A"
     onoff_frac_10 = "N/A"
 
 if(len(offline_trig11_events) != 0):
@@ -589,7 +589,7 @@ if(len(offline_trig11_events) != 0):
     onoff_frac_11 = str(round(len(online_trig11_events)/len(offline_trig11_events),6))
 else: 
     eff11 = "N/A"
-    eff11unc = ""
+    eff11unc = "N/A"
     onoff_frac_11 = "N/A"
 
 if(len(empty_trig1_events) != 0):
