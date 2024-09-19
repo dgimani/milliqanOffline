@@ -502,36 +502,99 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     
 
 #Offline efficiency = Offline and Online / Number offline
-eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),6))
-eff2 = str(round(len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])/len(offline_trig2_events),6))
-eff3 = str(round(len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])/len(offline_trig3_events),6))
-eff4 = str(round(len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])/len(offline_trig4_events),6))
-eff5 = str(round(len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])/len(offline_trig5_events),6))
-eff7 = str(round(len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])/len(offline_trig7_events),6))
-eff9 = str(round(len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])/len(offline_trig9_events),6))
-eff10 = str(round(len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])/len(offline_trig10_events),6))
-eff11 = str(round(len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])/len(offline_trig11_events),6))
+if(len(offline_trig1_events) != 0):
+    eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),6))
+    eff1unc = round(float(eff1) * np.sqrt( (1/len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])) + (1/len(offline_trig1_events)) ),6)
+else: 
+    eff1 = "N/A"
+    eff1unc = ""
 
-eff1unc = round(float(eff1) * np.sqrt( (1/len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])) + (1/len(offline_trig1_events)) ),6)
-eff2unc = round(float(eff2) * np.sqrt( (1/len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])) + (1/len(offline_trig2_events)) ),6)
-eff3unc = round(float(eff3) * np.sqrt( (1/len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])) + (1/len(offline_trig3_events)) ),6)
-eff4unc = round(float(eff4) * np.sqrt( (1/len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])) + (1/len(offline_trig4_events)) ),6)
-eff5unc = round(float(eff5) * np.sqrt( (1/len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])) + (1/len(offline_trig5_events)) ),6)
-eff7unc = round(float(eff7) * np.sqrt( (1/len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])) + (1/len(offline_trig7_events)) ),6)
-eff9unc = round(float(eff9) * np.sqrt( (1/len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])) + (1/len(offline_trig9_events)) ),6)
-eff10unc = round(float(eff10) * np.sqrt( (1/len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])) + (1/len(offline_trig10_events)) ),6)
-eff11unc = round(float(eff11) * np.sqrt( (1/len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])) + (1/len(offline_trig11_events)) ),6)
+if(len(offline_trig2_events) != 0):
+    eff2 = str(round(len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])/len(offline_trig2_events),6))
+    eff2unc = round(float(eff2) * np.sqrt( (1/len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])) + (1/len(offline_trig2_events)) ),6)
+else: 
+    eff2 = "N/A"
+    eff2unc = ""
 
-frac_t1_empty = round(len(empty_trig1_events) / (len(empty_trig1_events) + len(online_trig1_events)),5)
-frac_t2_empty = round(len(empty_trig2_events) / (len(empty_trig2_events) + len(online_trig2_events)),5)
-frac_t3_empty = round(len(empty_trig3_events) / (len(empty_trig3_events) + len(online_trig3_events)),5)
-frac_t4_empty = round(len(empty_trig4_events) / (len(empty_trig4_events) + len(online_trig4_events)),5)
-frac_t5_empty = round(len(empty_trig5_events) / (len(empty_trig5_events) + len(online_trig5_events)),5)
-frac_t7_empty = round(len(empty_trig7_events) / (len(empty_trig7_events) + len(online_trig7_events)),5)
-frac_t9_empty = round(len(empty_trig9_events) / (len(empty_trig9_events) + len(online_trig9_events)),5)
-frac_t10_empty = round(len(empty_trig10_events) / (len(empty_trig10_events) + len(online_trig10_events)),5)
-frac_t11_empty = round(len(empty_trig11_events) / (len(empty_trig11_events) + len(online_trig11_events)),5)
-frac_t13_empty = round(len(empty_trig13_events) / (len(empty_trig13_events) + len(online_trig13_events)),5)
+if(len(offline_trig3_events) != 0):
+    eff3 = str(round(len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])/len(offline_trig3_events),6))
+    eff3unc = round(float(eff3) * np.sqrt( (1/len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])) + (1/len(offline_trig3_events)) ),6)
+else: 
+    eff3 = "N/A"
+    eff3unc = ""
+
+if(len(offline_trig4_events) != 0):
+    eff4 = str(round(len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])/len(offline_trig4_events),6))
+    eff4unc = round(float(eff4) * np.sqrt( (1/len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])) + (1/len(offline_trig4_events)) ),6)
+else: 
+    eff4 = "N/A"
+    eff4unc = ""
+
+if(len(offline_trig5_events) != 0):
+    eff5 = str(round(len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])/len(offline_trig5_events),6))
+    eff5unc = round(float(eff5) * np.sqrt( (1/len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])) + (1/len(offline_trig5_events)) ),6)
+else: 
+    eff5 = "N/A"
+    eff5unc = ""
+
+if(len(offline_trig7_events) != 0):
+    eff7 = str(round(len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])/len(offline_trig7_events),6))
+    eff7unc = round(float(eff7) * np.sqrt( (1/len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])) + (1/len(offline_trig7_events)) ),6)
+else: 
+    eff7 = "N/A"
+    eff7unc = ""
+
+if(len(offline_trig9_events) != 0):
+    eff9 = str(round(len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])/len(offline_trig9_events),6))
+    eff9unc = round(float(eff9) * np.sqrt( (1/len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])) + (1/len(offline_trig9_events)) ),6)
+else: 
+    eff9 = "N/A"
+    eff9unc = ""
+
+if(len(offline_trig10_events) != 0):
+    eff10 = str(round(len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])/len(offline_trig10_events),6))
+    eff10unc = round(float(eff10) * np.sqrt( (1/len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])) + (1/len(offline_trig10_events)) ),6)
+else: 
+    eff10 = "N/A"
+    eff10unc = ""
+
+if(len(offline_trig11_events) != 0):
+    eff11 = str(round(len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])/len(offline_trig11_events),6))
+    eff11unc = round(float(eff11) * np.sqrt( (1/len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])) + (1/len(offline_trig11_events)) ),6)
+else: 
+    eff11 = "N/A"
+    eff11unc = ""
+
+if(len(empty_trig1_events) != 0):
+    frac_t1_empty = round(len(empty_trig1_events) / (len(empty_trig1_events) + len(online_trig1_events)),5)
+else: frac_t1_empty = "0"
+if(len(empty_trig2_events) != 0):
+    frac_t2_empty = round(len(empty_trig2_events) / (len(empty_trig2_events) + len(online_trig2_events)),5)
+else: frac_t2_empty = "0"
+if(len(empty_trig3_events) != 0):
+    frac_t3_empty = round(len(empty_trig3_events) / (len(empty_trig3_events) + len(online_trig3_events)),5)
+else: frac_t3_empty = "0"
+if(len(empty_trig4_events) != 0):
+    frac_t4_empty = round(len(empty_trig4_events) / (len(empty_trig4_events) + len(online_trig4_events)),5)
+else: frac_t4_empty = "0"
+if(len(empty_trig5_events) != 0):
+    frac_t5_empty = round(len(empty_trig5_events) / (len(empty_trig5_events) + len(online_trig5_events)),5)
+else: frac_t5_empty = "0"
+if(len(empty_trig7_events) != 0):
+    frac_t7_empty = round(len(empty_trig7_events) / (len(empty_trig7_events) + len(online_trig7_events)),5)
+else: frac_t7_empty = "0"
+if(len(empty_trig9_events) != 0):
+    frac_t9_empty = round(len(empty_trig9_events) / (len(empty_trig9_events) + len(online_trig9_events)),5)
+else: frac_t9_empty = "0"
+if(len(empty_trig10_events) != 0):
+    frac_t10_empty = round(len(empty_trig10_events) / (len(empty_trig10_events) + len(online_trig10_events)),5)
+else: frac_t10_empty = "0"
+if(len(empty_trig11_events) != 0):
+    frac_t11_empty = round(len(empty_trig11_events) / (len(empty_trig11_events) + len(online_trig11_events)),5)
+else: frac_t11_empty = "0"
+if(len(empty_trig13_events) != 0):
+    frac_t13_empty = round(len(empty_trig13_events) / (len(empty_trig13_events) + len(online_trig13_events)),5)
+else: frac_t13_empty = "0"
 
 
 
