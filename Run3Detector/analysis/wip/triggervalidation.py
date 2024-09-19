@@ -504,63 +504,72 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
 #Offline efficiency = Offline and Online / Number offline
 if(len(offline_trig1_events) != 0):
     eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),6))
-    eff1unc = round(float(eff1) * np.sqrt( (1/len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])) + (1/len(offline_trig1_events)) ),6)
+    if(float(eff1) == 0): eff1unc = 0
+    else: eff1unc = round(float(eff1) * np.sqrt( (1/len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])) + (1/len(offline_trig1_events)) ),6)
 else: 
     eff1 = "N/A"
     eff1unc = ""
 
 if(len(offline_trig2_events) != 0):
     eff2 = str(round(len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])/len(offline_trig2_events),6))
-    eff2unc = round(float(eff2) * np.sqrt( (1/len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])) + (1/len(offline_trig2_events)) ),6)
+    if(float(eff2) == 0): eff1unc = 0
+    else: eff2unc = round(float(eff2) * np.sqrt( (1/len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])) + (1/len(offline_trig2_events)) ),6)
 else: 
     eff2 = "N/A"
     eff2unc = ""
 
 if(len(offline_trig3_events) != 0):
     eff3 = str(round(len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])/len(offline_trig3_events),6))
-    eff3unc = round(float(eff3) * np.sqrt( (1/len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])) + (1/len(offline_trig3_events)) ),6)
+    if(float(eff3) == 0): eff1unc = 0
+    else: eff3unc = round(float(eff3) * np.sqrt( (1/len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])) + (1/len(offline_trig3_events)) ),6)
 else: 
     eff3 = "N/A"
     eff3unc = ""
 
 if(len(offline_trig4_events) != 0):
     eff4 = str(round(len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])/len(offline_trig4_events),6))
-    eff4unc = round(float(eff4) * np.sqrt( (1/len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])) + (1/len(offline_trig4_events)) ),6)
+    if(float(eff4) == 0): eff1unc = 0
+    else: eff4unc = round(float(eff4) * np.sqrt( (1/len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])) + (1/len(offline_trig4_events)) ),6)
 else: 
     eff4 = "N/A"
     eff4unc = ""
 
 if(len(offline_trig5_events) != 0):
     eff5 = str(round(len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])/len(offline_trig5_events),6))
-    eff5unc = round(float(eff5) * np.sqrt( (1/len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])) + (1/len(offline_trig5_events)) ),6)
+    if(float(eff5) == 0): eff1unc = 0
+    else: eff5unc = round(float(eff5) * np.sqrt( (1/len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])) + (1/len(offline_trig5_events)) ),6)
 else: 
     eff5 = "N/A"
     eff5unc = ""
 
 if(len(offline_trig7_events) != 0):
     eff7 = str(round(len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])/len(offline_trig7_events),6))
-    eff7unc = round(float(eff7) * np.sqrt( (1/len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])) + (1/len(offline_trig7_events)) ),6)
+    if(float(eff7) == 0): eff1unc = 0
+    else: eff7unc = round(float(eff7) * np.sqrt( (1/len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])) + (1/len(offline_trig7_events)) ),6)
 else: 
     eff7 = "N/A"
     eff7unc = ""
 
 if(len(offline_trig9_events) != 0):
     eff9 = str(round(len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])/len(offline_trig9_events),6))
-    eff9unc = round(float(eff9) * np.sqrt( (1/len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])) + (1/len(offline_trig9_events)) ),6)
+    if(float(eff9) == 0): eff1unc = 0
+    else: eff9unc = round(float(eff9) * np.sqrt( (1/len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])) + (1/len(offline_trig9_events)) ),6)
 else: 
     eff9 = "N/A"
     eff9unc = ""
 
 if(len(offline_trig10_events) != 0):
     eff10 = str(round(len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])/len(offline_trig10_events),6))
-    eff10unc = round(float(eff10) * np.sqrt( (1/len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])) + (1/len(offline_trig10_events)) ),6)
+    if(float(eff10) == 0): eff1unc = 0
+    else: eff10unc = round(float(eff10) * np.sqrt( (1/len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])) + (1/len(offline_trig10_events)) ),6)
 else: 
     eff10 = "N/A"
     eff10unc = ""
 
 if(len(offline_trig11_events) != 0):
     eff11 = str(round(len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])/len(offline_trig11_events),6))
-    eff11unc = round(float(eff11) * np.sqrt( (1/len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])) + (1/len(offline_trig11_events)) ),6)
+    if(float(eff11) == 0): eff1unc = 0
+    else: eff11unc = round(float(eff11) * np.sqrt( (1/len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])) + (1/len(offline_trig11_events)) ),6)
 else: 
     eff11 = "N/A"
     eff11unc = ""
