@@ -371,9 +371,10 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     matched_mask = tTrigger != -1  #Require matched triggers
     non_empty_mask = ak.num(branches["chan"]) > 0
     is_empty_mask = ak.num(branches["chan"]) == 0
-    empty_branches = branches[is_empty_mask]
-    empty_event = event[is_empty_mask]
-    empty_tTrigger = tTrigger[is_empty_mask]
+    if(ak.any(is_empty_mask)):
+        empty_branches = branches[is_empty_mask]
+        empty_event = event[is_empty_mask]
+        empty_tTrigger = tTrigger[is_empty_mask]
     branches = branches[matched_mask & non_empty_mask]
     dynamicPedestal = dynamicPedestal[matched_mask & non_empty_mask]
     tTrigger = tTrigger[matched_mask & non_empty_mask]
@@ -383,8 +384,9 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     bin_rep_vec = np.vectorize(np.binary_repr)
     trig_np = ak.to_numpy(tTrigger).astype(int)
     triggerbits = bin_rep_vec(trig_np,width=13)
-    empty_trig_np = ak.to_numpy(empty_tTrigger).astype(int)
-    empty_triggerbits = bin_rep_vec(empty_trig_np,width=13)
+    if(ak.any(is_empty_mask)):
+        empty_trig_np = ak.to_numpy(empty_tTrigger).astype(int)
+        empty_triggerbits = bin_rep_vec(empty_trig_np,width=13)
 
     #Now zip all these pulse shaped branches together into a record called pulses
     pulses = ak.zip(
@@ -474,27 +476,28 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     online_trig13_events = ak.concatenate([online_trig13_events,online_trig13_chunk_events])
 
     #Empty events
-    empty_trig1_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-1] == '1'],dtype=int)] + file_prefix
-    empty_trig2_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-2] == '1'],dtype=int)] + file_prefix
-    empty_trig3_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-3] == '1'],dtype=int)] + file_prefix
-    empty_trig4_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-4] == '1'],dtype=int)] + file_prefix
-    empty_trig5_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-5] == '1'],dtype=int)] + file_prefix
-    empty_trig7_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-7] == '1'],dtype=int)] + file_prefix
-    empty_trig9_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-9] == '1'],dtype=int)] + file_prefix
-    empty_trig10_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-10] == '1'],dtype=int)] + file_prefix
-    empty_trig11_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-11] == '1'],dtype=int)] + file_prefix
-    empty_trig13_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-13] == '1'],dtype=int)] + file_prefix
+    if(ak.any(is_empty_mask)):
+        empty_trig1_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-1] == '1'],dtype=int)] + file_prefix
+        empty_trig2_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-2] == '1'],dtype=int)] + file_prefix
+        empty_trig3_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-3] == '1'],dtype=int)] + file_prefix
+        empty_trig4_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-4] == '1'],dtype=int)] + file_prefix
+        empty_trig5_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-5] == '1'],dtype=int)] + file_prefix
+        empty_trig7_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-7] == '1'],dtype=int)] + file_prefix
+        empty_trig9_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-9] == '1'],dtype=int)] + file_prefix
+        empty_trig10_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-10] == '1'],dtype=int)] + file_prefix
+        empty_trig11_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-11] == '1'],dtype=int)] + file_prefix
+        empty_trig13_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-13] == '1'],dtype=int)] + file_prefix
 
-    empty_trig1_events = ak.concatenate([empty_trig1_events,empty_trig1_chunk_events])
-    empty_trig2_events = ak.concatenate([empty_trig2_events,empty_trig2_chunk_events])
-    empty_trig3_events = ak.concatenate([empty_trig3_events,empty_trig3_chunk_events])
-    empty_trig4_events = ak.concatenate([empty_trig4_events,empty_trig4_chunk_events])
-    empty_trig5_events = ak.concatenate([empty_trig5_events,empty_trig5_chunk_events])
-    empty_trig7_events = ak.concatenate([empty_trig7_events,empty_trig7_chunk_events])
-    empty_trig9_events = ak.concatenate([empty_trig9_events,empty_trig9_chunk_events])
-    empty_trig10_events = ak.concatenate([empty_trig10_events,empty_trig10_chunk_events])
-    empty_trig11_events = ak.concatenate([empty_trig11_events,empty_trig11_chunk_events])
-    empty_trig13_events = ak.concatenate([empty_trig13_events,empty_trig13_chunk_events])
+        empty_trig1_events = ak.concatenate([empty_trig1_events,empty_trig1_chunk_events])
+        empty_trig2_events = ak.concatenate([empty_trig2_events,empty_trig2_chunk_events])
+        empty_trig3_events = ak.concatenate([empty_trig3_events,empty_trig3_chunk_events])
+        empty_trig4_events = ak.concatenate([empty_trig4_events,empty_trig4_chunk_events])
+        empty_trig5_events = ak.concatenate([empty_trig5_events,empty_trig5_chunk_events])
+        empty_trig7_events = ak.concatenate([empty_trig7_events,empty_trig7_chunk_events])
+        empty_trig9_events = ak.concatenate([empty_trig9_events,empty_trig9_chunk_events])
+        empty_trig10_events = ak.concatenate([empty_trig10_events,empty_trig10_chunk_events])
+        empty_trig11_events = ak.concatenate([empty_trig11_events,empty_trig11_chunk_events])
+        empty_trig13_events = ak.concatenate([empty_trig13_events,empty_trig13_chunk_events])
 
     
 
@@ -510,14 +513,14 @@ eff10 = str(round(len(offline_trig10_events[np.isin(offline_trig10_events,online
 eff11 = str(round(len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])/len(offline_trig11_events),6))
 
 eff1unc = round(float(eff1) * np.sqrt( (1/len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])) + (1/len(offline_trig1_events)) ),6)
-eff2unc = round(float(eff2) * np.sqrt( (2/len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])) + (2/len(offline_trig2_events)) ),6)
-eff3unc = round(float(eff3) * np.sqrt( (3/len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])) + (3/len(offline_trig3_events)) ),6)
-eff4unc = round(float(eff4) * np.sqrt( (4/len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])) + (4/len(offline_trig4_events)) ),6)
-eff5unc = round(float(eff5) * np.sqrt( (5/len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])) + (5/len(offline_trig5_events)) ),6)
-eff7unc = round(float(eff7) * np.sqrt( (7/len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])) + (7/len(offline_trig7_events)) ),6)
-eff9unc = round(float(eff9) * np.sqrt( (9/len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])) + (9/len(offline_trig9_events)) ),6)
-eff10unc = round(float(eff10) * np.sqrt( (10/len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])) + (10/len(offline_trig10_events)) ),6)
-eff11unc = round(float(eff11) * np.sqrt( (11/len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])) + (11/len(offline_trig11_events)) ),6)
+eff2unc = round(float(eff2) * np.sqrt( (1/len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])) + (1/len(offline_trig2_events)) ),6)
+eff3unc = round(float(eff3) * np.sqrt( (1/len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])) + (1/len(offline_trig3_events)) ),6)
+eff4unc = round(float(eff4) * np.sqrt( (1/len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])) + (1/len(offline_trig4_events)) ),6)
+eff5unc = round(float(eff5) * np.sqrt( (1/len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])) + (1/len(offline_trig5_events)) ),6)
+eff7unc = round(float(eff7) * np.sqrt( (1/len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])) + (1/len(offline_trig7_events)) ),6)
+eff9unc = round(float(eff9) * np.sqrt( (1/len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])) + (1/len(offline_trig9_events)) ),6)
+eff10unc = round(float(eff10) * np.sqrt( (1/len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])) + (1/len(offline_trig10_events)) ),6)
+eff11unc = round(float(eff11) * np.sqrt( (1/len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])) + (1/len(offline_trig11_events)) ),6)
 
 frac_t1_empty = round(len(empty_trig1_events) / (len(empty_trig1_events) + len(online_trig1_events)),5)
 frac_t2_empty = round(len(empty_trig2_events) / (len(empty_trig2_events) + len(online_trig2_events)),5)
