@@ -7,6 +7,9 @@ import argparse
 import sys
 import re
 import glob
+import ROOT as r
+import pathlib
+import re
 
 #============================Four layers offline========================================
 def offlineTrig1Check(pulse1,pulse2):    
@@ -90,14 +93,13 @@ def offlineTrig1Check(pulse1,pulse2):
     cand3_chans = sliced_arr3
     cand4_chans = sliced_arr4
     
-    h1.fill(ak.ravel(cand1_chans))
-    h1.fill(ak.ravel(cand2_chans))
-    h1.fill(ak.ravel(cand3_chans))
-    h1.fill(ak.ravel(cand4_chans))
+    channels1.fill(ak.ravel(cand1_chans))
+    channels1.fill(ak.ravel(cand2_chans))
+    channels1.fill(ak.ravel(cand3_chans))
+    channels1.fill(ak.ravel(cand4_chans))
     
     
-    return offline_trig1_events
-
+    return offline_trig1_events, cand1_chans, cand2_chans, cand3_chans, cand4_chans
 
 #============================Three in row offline========================================
 def offlineTrig2Check(pulse1,pulse2):
@@ -302,11 +304,47 @@ def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
 
 
-path = sys.argv[1]
+path = sys.argv[1]  #Path to data file to run on 
+quality_string = "loose"  #goodRunsList quality string
 files = sorted(glob.glob("{0}.root".format(path)), key=natural_sort_key)
+path_to_json = "goodRunsList.json"
+goodJson_array = ak.from_json(pathlib.Path(path_to_json))
+data = ak.Array(goodJson_array['data'])
+goodJson = ak.zip({
+            'run': data[:, 0],
+            'file': data[:, 1],
+            'loose': data[:, 2],
+            'medium': data[:, 3],
+            'tight': data[:, 4],
+            'single_trigger': data[:, 5]
+        }, depth_limit=1)
+
+goodJson = ak.enforce_type(goodJson, "{run: int64, file: int64, loose: bool, medium: bool, tight: bool, single_trigger: bool}")
+pattern = r"Run(\d+)\.(\d+)"
+
+#Remove files which fail quality requirements
+for file in files[:]:
+    match = re.search(pattern, file)
+    if match:
+        run_num = int(match.group(1))
+        file_num = int(match.group(2))
+        matching_goodJson = goodJson[(goodJson['run'] == int(run_num)) & (goodJson['file'] == int(file_num))]
+        if len(matching_goodJson) == 0 or not matching_goodJson[quality_string][0]:
+            files.remove(file)
+    else:
+        raise TypeError("Filename does not match pattern.")
+    
+    
+
+
 #print(files)
 fig = plt.figure()
-h1 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
+channels1 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
+channels1_and_2 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
+channels1_not_2 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
+ZBpulses = hist.Hist(hist.axis.Regular(20,0,20,label="N Pulses"))
+fourLayersPulses = hist.Hist(hist.axis.Regular(20,0,20,label="N Pulses"))
+threeInRowPulses = hist.Hist(hist.axis.Regular(20,0,20,label="N Pulses"))
 
 offline_trig1_events = ak.Array([])
 offline_trig2_events = ak.Array([])
@@ -339,6 +377,11 @@ empty_trig9_events = ak.Array([])
 empty_trig10_events = ak.Array([])
 empty_trig11_events = ak.Array([])
 empty_trig13_events = ak.Array([])
+
+n_zerobias_pulses = ak.Array([])
+n_trig1_pulses = ak.Array([])
+n_trig2_pulses = ak.Array([])
+
 
 files_with_trees = {file_name: "t;1" for file_name in files}
 #print(files_with_trees)
@@ -402,7 +445,6 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
         }
     )
 
-    #dynamicPedestal = tree["dynamicPedestal"].array(entry_stop=stop)
     
 
     online_height = pulses.height + dynamicPedestal[pulses.chan]
@@ -428,7 +470,8 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
 
     file_prefix = 1000*fileNumber[0] - 1000
 
-    offline_trig1_chunk_events = offlineTrig1Check(pulse1,pulse2) + file_prefix
+    offline_trig1_chunk_events, cand1_chans, cand2_chans, cand3_chans, cand4_chans = offlineTrig1Check(pulse1,pulse2)
+    offline_trig1_chunk_events = offline_trig1_chunk_events + file_prefix
     offline_trig2_chunk_events = offlineTrig2Check(pulse1,pulse2) + file_prefix
     offline_trig3_chunk_events = offlineTrig3Check(pulse1,pulse2) + file_prefix
     offline_trig4_chunk_events = offlineTrig4Check(pulse1,pulse2) + file_prefix
@@ -437,6 +480,17 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     offline_trig9_chunk_events = offlineTrig9Check(pulses) + file_prefix
     offline_trig10_chunk_events = offlineTrig10Check(pulse1,pulse2) + file_prefix
     offline_trig11_chunk_events = offlineTrig11Check(pulse1,pulse2) + file_prefix
+
+    trig1_and_trig2 = np.isin(offline_trig1_chunk_events,offline_trig2_chunk_events)
+    channels1_and_2.fill(cand1_chans[trig1_and_trig2])
+    channels1_and_2.fill(cand2_chans[trig1_and_trig2])
+    channels1_and_2.fill(cand3_chans[trig1_and_trig2])
+    channels1_and_2.fill(cand4_chans[trig1_and_trig2])
+    channels1_not_2.fill(cand1_chans[~trig1_and_trig2])
+    channels1_not_2.fill(cand2_chans[~trig1_and_trig2])
+    channels1_not_2.fill(cand3_chans[~trig1_and_trig2])
+    channels1_not_2.fill(cand4_chans[~trig1_and_trig2])
+    
 
     offline_trig1_events = ak.concatenate([offline_trig1_events,offline_trig1_chunk_events]) 
     offline_trig2_events = ak.concatenate([offline_trig2_events,offline_trig2_chunk_events])
@@ -475,6 +529,7 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
     online_trig11_events = ak.concatenate([online_trig11_events,online_trig11_chunk_events])
     online_trig13_events = ak.concatenate([online_trig13_events,online_trig13_chunk_events])
 
+
     #Empty events
     if(ak.any(is_empty_mask)):
         empty_trig1_chunk_events = empty_event[np.array([i for i, bit in enumerate(empty_triggerbits) if bit[-1] == '1'],dtype=int)] + file_prefix
@@ -498,130 +553,57 @@ for branches in uproot.iterate(files_with_trees,["time","height","area","row","c
         empty_trig10_events = ak.concatenate([empty_trig10_events,empty_trig10_chunk_events])
         empty_trig11_events = ak.concatenate([empty_trig11_events,empty_trig11_chunk_events])
         empty_trig13_events = ak.concatenate([empty_trig13_events,empty_trig13_chunk_events])
+        
+    n_zerobias_chunk_pulses = ak.num(pulses["chan"][np.isin(event,online_trig13_chunk_events - file_prefix)])
+    n_trig1_chunk_pulses = ak.num(pulses["chan"][np.isin(event,offline_trig1_chunk_events - file_prefix)])
+    n_trig2_chunk_pulses = ak.num(pulses["chan"][np.isin(event,offline_trig2_chunk_events - file_prefix)])
+
+    n_zerobias_pulses = ak.concatenate([n_zerobias_pulses,n_zerobias_chunk_pulses])
+    n_trig1_pulses = ak.concatenate([n_trig1_pulses,n_trig1_chunk_pulses])
+    n_trig2_pulses = ak.concatenate([n_trig2_pulses,n_trig2_chunk_pulses])
 
     
 
-#Offline efficiency = Offline and Online / Number offline
-if(len(offline_trig1_events) != 0):
-    eff1 = str(round(len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])/len(offline_trig1_events),6))
-    if(float(eff1) == 0): eff1unc = 0
-    else: eff1unc = round(float(eff1) * np.sqrt( (1/len(offline_trig1_events[np.isin(offline_trig1_events,online_trig1_events)])) + (1/len(offline_trig1_events)) ),6)
-    onoff_frac_1 = str(round(len(online_trig1_events)/len(offline_trig1_events),6))
-else: 
-    eff1 = "N/A"
-    eff1unc = "N/A"
-    onoff_frac_1 = "N/A"
 
-if(len(offline_trig2_events) != 0):
-    eff2 = str(round(len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])/len(offline_trig2_events),6))
-    if(float(eff2) == 0): eff2unc = 0
-    else: eff2unc = round(float(eff2) * np.sqrt( (1/len(offline_trig2_events[np.isin(offline_trig2_events,online_trig2_events)])) + (1/len(offline_trig2_events)) ),6)
-    onoff_frac_2 = str(round(len(online_trig2_events)/len(offline_trig2_events),6))
-else: 
-    eff2 = "N/A"
-    eff2unc = "N/A"
-    onoff_frac_2 = "N/A"
+def calculations(offline_events,online_events):
+    if(len(offline_events) != 0):
+        eff = str(round(len(offline_events[np.isin(offline_events,online_events)])/len(offline_events),6))
+        if(float(eff) == 0): effunc = 0
+        else: effunc = round(float(eff) * np.sqrt( (1/len(offline_events[np.isin(offline_events,online_events)])) + (1/len(offline_events)) ),6)
+        onoff_frac = str(round(len(online_events)/len(offline_events),6))
+    else: 
+        eff = "N/A"
+        effunc = "N/A"
+        onoff_frac = "N/A"
+    return eff, effunc, onoff_frac
 
-if(len(offline_trig3_events) != 0):
-    eff3 = str(round(len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])/len(offline_trig3_events),6))
-    if(float(eff3) == 0): eff3unc = 0
-    else: eff3unc = round(float(eff3) * np.sqrt( (1/len(offline_trig3_events[np.isin(offline_trig3_events,online_trig3_events)])) + (1/len(offline_trig3_events)) ),6)
-    onoff_frac_3 = str(round(len(online_trig3_events)/len(offline_trig3_events),6))
-else: 
-    eff3 = "N/A"
-    eff3unc = "N/A"
-    onoff_frac_3 = "N/A"
+eff1, eff1unc, onoff_frac1 = calculations(offline_trig1_events,online_trig1_events)
+eff2, eff2unc, onoff_frac2 = calculations(offline_trig2_events,online_trig2_events)
+eff3, eff3unc, onoff_frac3 = calculations(offline_trig3_events,online_trig3_events)
+eff4, eff4unc, onoff_frac4 = calculations(offline_trig4_events,online_trig4_events)
+eff5, eff5unc, onoff_frac5 = calculations(offline_trig5_events,online_trig5_events)
+eff7, eff7unc, onoff_frac7 = calculations(offline_trig7_events,online_trig7_events)
+eff9, eff9unc, onoff_frac9 = calculations(offline_trig9_events,online_trig9_events)
+eff10, eff10unc, onoff_frac10 = calculations(offline_trig10_events,online_trig10_events)
+eff11, eff11unc, onoff_frac11 = calculations(offline_trig11_events,online_trig11_events)
 
-if(len(offline_trig4_events) != 0):
-    eff4 = str(round(len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])/len(offline_trig4_events),6))
-    if(float(eff4) == 0): eff4unc = 0
-    else: eff4unc = round(float(eff4) * np.sqrt( (1/len(offline_trig4_events[np.isin(offline_trig4_events,online_trig4_events)])) + (1/len(offline_trig4_events)) ),6)
-    onoff_frac_4 = str(round(len(online_trig4_events)/len(offline_trig4_events),6))
-else: 
-    eff4 = "N/A"
-    eff4unc = "N/A"
-    onoff_frac_4 = "N/A"
 
-if(len(offline_trig5_events) != 0):
-    eff5 = str(round(len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])/len(offline_trig5_events),6))
-    if(float(eff5) == 0): eff5unc = 0
-    else: eff5unc = round(float(eff5) * np.sqrt( (1/len(offline_trig5_events[np.isin(offline_trig5_events,online_trig5_events)])) + (1/len(offline_trig5_events)) ),6)
-    onoff_frac_5 = str(round(len(online_trig5_events)/len(offline_trig5_events),6))
-else: 
-    eff5 = "N/A"
-    eff5unc = "N/A"
-    onoff_frac_5 = "N/A"
+def empty_fracs(empty_events,online_events):
+    if(len(empty_events) != 0):
+        frac_empty = round(len(empty_events) / (len(empty_events) + len(online_events)),5)
+    else: frac_empty = "0"
+    return frac_empty
 
-if(len(offline_trig7_events) != 0):
-    eff7 = str(round(len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])/len(offline_trig7_events),6))
-    if(float(eff7) == 0): eff7unc = 0
-    else: eff7unc = round(float(eff7) * np.sqrt( (1/len(offline_trig7_events[np.isin(offline_trig7_events,online_trig7_events)])) + (1/len(offline_trig7_events)) ),6)
-    onoff_frac_7 = str(round(len(online_trig7_events)/len(offline_trig7_events),6))
-else: 
-    eff7 = "N/A"
-    eff7unc = "N/A"
-    onoff_frac_7 = "N/A"
-
-if(len(offline_trig9_events) != 0):
-    eff9 = str(round(len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])/len(offline_trig9_events),6))
-    if(float(eff9) == 0): eff9unc = 0
-    else: eff9unc = round(float(eff9) * np.sqrt( (1/len(offline_trig9_events[np.isin(offline_trig9_events,online_trig9_events)])) + (1/len(offline_trig9_events)) ),6)
-    onoff_frac_9 = str(round(len(online_trig9_events)/len(offline_trig9_events),6))
-else: 
-    eff9 = "N/A"
-    eff9unc = "N/A"
-    onoff_frac_9 = "N/A"
-
-if(len(offline_trig10_events) != 0):
-    eff10 = str(round(len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])/len(offline_trig10_events),6))
-    if(float(eff10) == 0): eff10unc = 0
-    else: eff10unc = round(float(eff10) * np.sqrt( (1/len(offline_trig10_events[np.isin(offline_trig10_events,online_trig10_events)])) + (1/len(offline_trig10_events)) ),6)
-    onoff_frac_10 = str(round(len(online_trig10_events)/len(offline_trig10_events),6))
-else: 
-    eff10 = "N/A"
-    eff10unc = "N/A"
-    onoff_frac_10 = "N/A"
-
-if(len(offline_trig11_events) != 0):
-    eff11 = str(round(len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])/len(offline_trig11_events),6))
-    if(float(eff11) == 0): eff11unc = 0
-    else: eff11unc = round(float(eff11) * np.sqrt( (1/len(offline_trig11_events[np.isin(offline_trig11_events,online_trig11_events)])) + (1/len(offline_trig11_events)) ),6)
-    onoff_frac_11 = str(round(len(online_trig11_events)/len(offline_trig11_events),6))
-else: 
-    eff11 = "N/A"
-    eff11unc = "N/A"
-    onoff_frac_11 = "N/A"
-
-if(len(empty_trig1_events) != 0):
-    frac_t1_empty = round(len(empty_trig1_events) / (len(empty_trig1_events) + len(online_trig1_events)),5)
-else: frac_t1_empty = "0"
-if(len(empty_trig2_events) != 0):
-    frac_t2_empty = round(len(empty_trig2_events) / (len(empty_trig2_events) + len(online_trig2_events)),5)
-else: frac_t2_empty = "0"
-if(len(empty_trig3_events) != 0):
-    frac_t3_empty = round(len(empty_trig3_events) / (len(empty_trig3_events) + len(online_trig3_events)),5)
-else: frac_t3_empty = "0"
-if(len(empty_trig4_events) != 0):
-    frac_t4_empty = round(len(empty_trig4_events) / (len(empty_trig4_events) + len(online_trig4_events)),5)
-else: frac_t4_empty = "0"
-if(len(empty_trig5_events) != 0):
-    frac_t5_empty = round(len(empty_trig5_events) / (len(empty_trig5_events) + len(online_trig5_events)),5)
-else: frac_t5_empty = "0"
-if(len(empty_trig7_events) != 0):
-    frac_t7_empty = round(len(empty_trig7_events) / (len(empty_trig7_events) + len(online_trig7_events)),5)
-else: frac_t7_empty = "0"
-if(len(empty_trig9_events) != 0):
-    frac_t9_empty = round(len(empty_trig9_events) / (len(empty_trig9_events) + len(online_trig9_events)),5)
-else: frac_t9_empty = "0"
-if(len(empty_trig10_events) != 0):
-    frac_t10_empty = round(len(empty_trig10_events) / (len(empty_trig10_events) + len(online_trig10_events)),5)
-else: frac_t10_empty = "0"
-if(len(empty_trig11_events) != 0):
-    frac_t11_empty = round(len(empty_trig11_events) / (len(empty_trig11_events) + len(online_trig11_events)),5)
-else: frac_t11_empty = "0"
-if(len(empty_trig13_events) != 0):
-    frac_t13_empty = round(len(empty_trig13_events) / (len(empty_trig13_events) + len(online_trig13_events)),5)
-else: frac_t13_empty = "0"
+frac_t1_empty = empty_fracs(empty_trig1_events,online_trig1_events)
+frac_t2_empty = empty_fracs(empty_trig2_events,online_trig2_events)
+frac_t3_empty = empty_fracs(empty_trig3_events,online_trig3_events)
+frac_t4_empty = empty_fracs(empty_trig4_events,online_trig4_events)
+frac_t5_empty = empty_fracs(empty_trig5_events,online_trig5_events)
+frac_t7_empty = empty_fracs(empty_trig7_events,online_trig7_events)
+frac_t9_empty = empty_fracs(empty_trig9_events,online_trig9_events)
+frac_t10_empty = empty_fracs(empty_trig10_events,online_trig10_events)
+frac_t11_empty = empty_fracs(empty_trig11_events,online_trig11_events)
+frac_t13_empty = empty_fracs(empty_trig13_events,online_trig13_events)
 
 
 
@@ -649,6 +631,7 @@ print("Zerobias".ljust(22),str(len(online_trig13_events)).ljust(22),"N/A".ljust(
 #print("Online trig1 events that are not found offline ",ak.to_list(online_trig1_events[np.isin(online_trig1_events,offline_trig1_events,invert=True)]))
 #print("Online trig2 events that are not found offline ",ak.to_list(online_trig2_events[np.isin(online_trig2_events,offline_trig2_events,invert=True)]))
 
+'''
 with open("trig1offline_py.txt","w") as outfile:
     for t1offevent in offline_trig1_events:
         outfile.write(f"{t1offevent}\n")
@@ -667,9 +650,51 @@ with open("trig2online_py.txt","w") as outfile:
 
 with open(f"efficiency_files/run{runNumber[0]}.txt","w") as outfile:
     outfile.write(f"{runNumber[0]} {eff1} {eff1unc} {onoff_frac_1} {frac_t1_empty} {eff2} {eff2unc} {onoff_frac_2} {frac_t2_empty} {frac_t13_empty} \n")
+'''
+
+def create_hists(name,title,events,run_number,nbins=5,end_bin=5):
+    hist = r.TH1F(name,title,nbins,run_number,run_number + end_bin)
+    hist.SetBinContent(1,len(events))
+    return hist
+
+def create_overlap_hists(name,title,offline_events,online_events,run_number,nbins=5,end_bin=5):
+    overlap = np.isin(offline_events,online_events)
+    hist = r.TH1F(name,title,nbins,run_number,run_number + end_bin)
+    hist.SetBinContent(1,len(offline_events[overlap]))
+    return hist
+
+n_online_hists = [create_hists(f"n_online{i}",f"Number of Online Trig {i} Events in Run {runNumber[0]}",eval(f"online_trig{i}_events"),runNumber[0]) for i in [1,2,3,4,5,7,9,10,11,13]]
+n_offline_hists = [create_hists(f"n_offline{i}",f"Number of Offline Trig {i} Events in Run {runNumber[0]}",eval(f"offline_trig{i}_events"),runNumber[0]) for i in [1,2,3,4,5,7,9,10,11]]
+n_empty_hists = [create_hists(f"n_empty{i}",f"Number of Empty Trig {i} Events in Run {runNumber[0]}", eval(f"empty_trig{i}_events"), runNumber[0]) for i in [1,2,3,4,5,7,9,10,11,13]]
+n_overlap_hists = [create_overlap_hists(f"n_overlap{i}",f"Number of Overlap Trig {i} Events in Run {runNumber[0]}",eval(f"offline_trig{i}_events"),eval(f"online_trig{i}_events"),runNumber[0]) for i in [1,2,3,4,5,7,9,10,11]]
+ZBpulses.fill(n_zerobias_pulses)
+fourLayersPulses.fill(n_trig1_pulses)
+threeInRowPulses.fill(n_trig2_pulses)
+
+with uproot.recreate(f"output_run_{runNumber[0]}_file_{fileNumber[0]}.root") as outfile:
+    outfile["channels1"] = channels1
+    outfile["channels1_and_2"] = channels1_and_2
+    outfile["channels1_not_2"] = channels1_not_2
+    outfile["ZBpulses"] = ZBpulses
+    outfile["fourLayersPulses"] = fourLayersPulses
+    outfile["threeInRowPulses"] = threeInRowPulses
+
+    for i in [1,2,3,4,5,7,9,10,11,13]:
+        if i <= 5: j = i-1
+        elif i == 7: j = i-2
+        elif i >= 9 and i < 13: j = i-3
+        elif i == 13: j = i-4
+        outfile[f"n_online{i}"] = n_online_hists[j]
+        outfile[f"n_empty{i}"] = n_empty_hists[j]
+        if i == 13: continue
+        outfile[f"n_offline{i}"] = n_offline_hists[j]
+        outfile[f"n_overlap{i}"] = n_overlap_hists[j] 
 
 
-#h1.plot()
+
+
+
+#channels1.plot()
 #plt.show()
 
 
