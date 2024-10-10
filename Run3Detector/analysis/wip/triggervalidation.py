@@ -305,7 +305,7 @@ def natural_sort_key(s):
 
 
 path = sys.argv[1]  #Path to data file to run on 
-quality_string = "tight"  #goodRunsList quality string
+quality_string = str(sys.argv[2])  #goodRunsList quality string
 files = sorted(glob.glob("{0}.root".format(path)), key=natural_sort_key)
 path_to_json = "goodRunsList.json"
 goodJson_array = ak.from_json(pathlib.Path(path_to_json))
@@ -671,7 +671,7 @@ ZBpulses.fill(n_zerobias_pulses)
 fourLayersPulses.fill(n_trig1_pulses)
 threeInRowPulses.fill(n_trig2_pulses)
 
-with uproot.recreate(f"output_root_files/output_run_{runNumber[0]}.root") as outfile:
+with uproot.recreate(f"output_root_files/{quality_string}/output_run_{runNumber[0]}.root") as outfile:
     outfile["channels1"] = channels1
     outfile["channels1_and_2"] = channels1_and_2
     outfile["channels1_not_2"] = channels1_not_2
