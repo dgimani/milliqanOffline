@@ -307,7 +307,7 @@ def natural_sort_key(s):
 path = sys.argv[1]  #Path to data file to run on 
 quality_string = str(sys.argv[2])  #goodRunsList quality string
 files = sorted(glob.glob("{0}.root".format(path)), key=natural_sort_key)
-path_to_json = "goodRunsList.json"
+path_to_json = "/homes/dgimani/goodRunsList.json"
 goodJson_array = ak.from_json(pathlib.Path(path_to_json))
 data = ak.Array(goodJson_array['data'])
 goodJson = ak.zip({
@@ -343,8 +343,8 @@ channels1 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
 channels1_and_2 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
 channels1_not_2 = hist.Hist(hist.axis.Regular(64,0,64,label="Channel"))
 ZBpulses = hist.Hist(hist.axis.Regular(20,0,20,label="N Pulses"))
-fourLayersPulses = hist.Hist(hist.axis.Regular(20,0,20,label="N Pulses"))
-threeInRowPulses = hist.Hist(hist.axis.Regular(20,0,20,label="N Pulses"))
+fourLayersPulses = hist.Hist(hist.axis.Regular(20,0,60,label="N Pulses"))
+threeInRowPulses = hist.Hist(hist.axis.Regular(20,0,60,label="N Pulses"))
 
 offline_trig1_events = ak.Array([])
 offline_trig2_events = ak.Array([])
