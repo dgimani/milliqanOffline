@@ -9,7 +9,8 @@ import mplhep as hep
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--runs", required=True, nargs="*", default=[], type=int)
+    parser.add_argument("--runs", required=True, nargs="*", default=[], type=int, help="The runs to plot from.")
+    parser.add_argument("--layer", required=True, type=int, help="The layer to plot.")
     parser.add_argument("--plot_var", required=True)
     parser.add_argument("--plot_range", required=True, help="e.g. 0-100")
     # Allow arbitrary many cuts in the format var:low-high
@@ -193,9 +194,13 @@ def straightLinePath(pulses):  #NOTE: as of now this function returns 4 hits in 
 	return pulses[straightLineMask]
 
 
-def make_plot(runs, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fit_func=gaussian):
+def make_plot(runs, layer, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fit_func=gaussian):
     # parse the plot range
     rlow, rhigh = (float(x) for x in plot_range.split("_"))
+
+    chan_start = (layer) * 24
+    chan_end = (layer)*24 + 24
+
 
     # parse the cut strings: each is like "var:low-high"
     cut_specs = []
@@ -220,15 +225,27 @@ def make_plot(runs, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fi
     branches_needed.append("ipulse")
 
     # build the histogram
-    h = hist.Hist(
-        hist.axis.Regular(80, rlow, rhigh, label=plot_var)
-    )
+    axis = hist.axis.Regular(80, rlow, rhigh, label=" ")
+    hists = [hist.Hist(axis, storage=hist.storage.Weight()) for _ in range(24)]
 
     run_list = []
     for run in runs:
 	    if(run>=1105): run_list.append(f"/net/cms18/cms18r0/milliqan/Run3Offline/v36/slab/MilliQanSlab_Run{run}.*_v36.root:t")
 	    else: run_list.append(f"/net/cms18/cms18r0/milliqan/Run3Offline/v35/slab/MilliQanSlab_Run{run}.*_v35.root:t")
 
+    hep.style.use("CMS")
+    fig, ax = plt.subplots()
+    plt.title(f"milliQan Preliminary",loc="left",pad=30)
+    plt.title(f"Slab Detector",loc="right",pad=30)
+    if len(runs) > 1: plt.title(f"Cosmic runs {runs[0]}-{runs[-1]}", loc='center')
+    else: plt.title(f"Cosmic run {runs[0]}", loc='center')
+    ax.xaxis.set_label_coords(0.5,-0.05)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.get_xaxis().set_ticks([])
+    ax.get_yaxis().set_ticks([])
 
     for branches in uproot.iterate(run_list, branches_needed, step_size=1000):
 
@@ -256,34 +273,38 @@ def make_plot(runs, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fi
             cut_mask = cut_mask & ((straightLinePulses[cutvar] >= cut_low) & (straightLinePulses[cutvar] <= cut_high))
 
         # fill histogram with masked values
-        arr_plot = straightLinePulses[plot_var][cut_mask]
-        h.fill(ak.ravel(arr_plot)) 
+        for i, chan_ in enumerate(range(chan_start, chan_end)):
+                arr_plot = straightLinePulses[cut_mask][straightLinePulses[cut_mask]["chan"] == chan_]
+                #print(ak.ravel(arr_plot[plot_var]))
+                if(plot_var=="area"): arr_plot[plot_var] = arr_plot[plot_var]/1000
+                hists[i].fill(ak.ravel(arr_plot[plot_var]))
 
 
     # draw the histogram
-    hep.style.use("CMS")
-    h.plot(yerr=False)
+    for i, chan_ in enumerate(range(chan_start, chan_end)):
+	    plt.subplot(4,6,(chan_%24)+1)
+	    hists[i].plot(yerr=False)
+	    #print(hists[i])
+	    plt.yscale('log')
+	    plt.ylim(10,1000)
+	    plt.grid(True)
+	    plt.text(0.7,0.88,f"Channel {chan_}",transform=plt.gca().transAxes,fontsize=10)
     if do_fit:
         popt, pcov, xfit, yfit = fit(fit_func, h, fit_range)
         plt.plot(xfit,yfit)
-    plt.title(f"milliQan Preliminary",loc="left")
-    plt.title(f"Slab Detector",loc="right")
-    plt.grid(True)
-    plt.yscale('log')
-    plt.ylabel('Number of Pulses')
-    if len(runs) > 1: plt.text(0.63,0.93,f"Runs {runs[0]}-{runs[-1]}", transform=plt.gca().transAxes)
-    else: plt.text(0.73,0.93,f"Run {runs[0]}", transform=plt.gca().transAxes)
-    if 'chan' in locals(): plt.text(0.73,0.88,f"Channel {chan}",transform=plt.gca().transAxes)
+    if(plot_var == "height"): ax.set_xlabel("Pulse Height [mV]",loc='center',labelpad=60)
+    if(plot_var == "area"): ax.set_xlabel("Pulse Area [nVs]",loc='center',labelpad=60)
+    else: ax.set_xlabel(plot_var,loc='center',labelpad=60)
+    ax.set_ylabel('Number of Pulses',loc='center',labelpad=60)
+    #plt.rcParams.update({'xtick.labelsize': 4, 'ytick.labelsize': 4})
+    #plt.tight_layout()
+    #if 'chan' in locals(): plt.text(0.73,0.88,f"Channel {chan}",transform=plt.gca().transAxes)
     if do_fit:
         plt.text(0.73,0.83,rf'$\mu$={round(popt[1],1)}',transform=plt.gca().transAxes)
         plt.text(0.73,0.78,rf'$\sigma$={round(popt[2],1)}',transform=plt.gca().transAxes)
-    if(plot_var == "height"): plt.xlabel("Pulse Height [mV]",loc='center')
-    if(plot_var == "area"): plt.xlabel("Pulse Area [pVs]",loc='center')
-    else: plt.xlabel(plot_var,loc='center')
-    plt.tight_layout()
     plt.show()
 
 if __name__ == "__main__":
     args = parse_args()
-    make_plot(args.runs, args.plot_var, args.plot_range, args.cuts, args.do_fit, args.fit_range)
+    make_plot(args.runs, args.layer, args.plot_var, args.plot_range, args.cuts, args.do_fit, args.fit_range)
 
