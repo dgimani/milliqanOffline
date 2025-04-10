@@ -237,8 +237,8 @@ def make_plot(runs, layer, plot_var, plot_range, cuts, do_fit=False, fit_range=N
     fig, ax = plt.subplots()
     plt.title(f"milliQan Preliminary",loc="left",pad=30)
     plt.title(f"Slab Detector",loc="right",pad=30)
-    if len(runs) > 1: plt.title(f"Cosmic runs {runs[0]}-{runs[-1]}", loc='center')
-    else: plt.title(f"Cosmic run {runs[0]}", loc='center')
+    if len(runs) > 1: plt.title(f"Runs {runs[0]}-{runs[-1]}", loc='center')
+    else: plt.title(f"Run {runs[0]}", loc='center')
     ax.xaxis.set_label_coords(0.5,-0.05)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -262,7 +262,7 @@ def make_plot(runs, layer, plot_var, plot_range, cuts, do_fit=False, fit_range=N
 			}
 	)
 
-        cleaning_cuts = (pulses.height > 800) #& (pulses.time > 1000) & (pulses.time < 1500)#Start off with some cleaning cuts that select for cosmics and reduce combinatorics later
+        cleaning_cuts = (pulses.height > 15) #& (pulses.time > 1000) & (pulses.time < 1500)#Start off with some cleaning cuts that select for cosmics and reduce combinatorics later
         straightLinePulses = straightLinePath(pulses[cleaning_cuts]) #Returns pulses which are in a straight line within some time of each other in each layer
 
         # Start with a mask of “select everything”
