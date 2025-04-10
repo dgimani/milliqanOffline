@@ -1,10 +1,12 @@
 #include "./interface/OfflineFactory.h"
 
-OfflineFactory::OfflineFactory(TString inFileName, TString outFileName, TString appendToTag, bool isDRS, int runNumber, int fileNumber) : 
+OfflineFactory::OfflineFactory(TString inFileName, TString outFileName, TString appendToTag, bool isDRS, bool isSlab, bool isSim, int runNumber, int fileNumber) : 
     inFileName(inFileName),
     outFileName(outFileName),
     appendToTag(appendToTag),
     isDRS(isDRS),
+    isSlab(isSlab),
+    isSim(isSim),
     runNumber(runNumber),
     fileNumber(fileNumber)
 {
@@ -44,8 +46,8 @@ OfflineFactory::OfflineFactory(TString inFileName, TString outFileName, TString 
     colors.push_back(860-9); colors.push_back(400-5); colors.push_back(416-8); colors.push_back(880-8); 
 };
 
-OfflineFactory::OfflineFactory(TString inFileName, TString outFileName, TString appendToTag, bool isDRS) {
-    OfflineFactory(inFileName,outFileName,appendToTag,isDRS,-1,-1);
+OfflineFactory::OfflineFactory(TString inFileName, TString outFileName, TString appendToTag, bool isDRS, bool isSlab, bool isSim) {
+  OfflineFactory(inFileName,outFileName,appendToTag,isDRS,isSlab, isSim, -1,-1);
 };
 void OfflineFactory::setFriendFile(TString friendFileNameIn){
     friendFileName = friendFileNameIn;
@@ -61,6 +63,17 @@ void OfflineFactory::addFriendTree(){
     inTree->SetBranchAddress("eventNum", &tEvtNum);
     inTree->SetBranchAddress("runNum", &tRunNum);
     inTree->SetBranchAddress("tbEvent", &tTBEvent);
+
+    //Add trigger board meta data
+    matchedFile = TFile::Open(friendFileName, "read");
+    if (matchedFile->GetListOfKeys()->Contains("MetaData")){
+        trigMetaData = (TTree*) matchedFile->Get("MetaData");
+        trigMetaDataCopy = trigMetaData->CloneTree();
+        trigMetaDataCopy->SetDirectory(0);
+        writeTriggerMetaData=true;
+    }
+    matchedFile->Close();
+
 }
 
 // OfflineFactory::~OfflineFactory() {
@@ -94,7 +107,6 @@ void OfflineFactory::loadJsonConfig(string configFileName){
                     }
                     chanMap.push_back(chanMapPerChan);
                 }
-                std::cout << "Loaded channel map" << std::endl;
             }
             if (json.find("pulseParams") != std::string::npos){
                 nConsecSamples.clear();
@@ -118,28 +130,24 @@ void OfflineFactory::loadJsonConfig(string configFileName){
                 for (int index = 0; index < lowThreshJson.size(); index ++){
                     lowThresh.push_back(lowThreshJson[index].asFloat());
                 }
-                std::cout << "Loaded pulse finding params" << std::endl;
             }
             if (json.find("timingCalibrations") != std::string::npos){
                 const Json::Value timingCalibrationsJson = jsonRoot["timingCalibrations"];
                 for (int index = 0; index < timingCalibrationsJson.size(); index ++){
                     timingCalibrations.push_back(timingCalibrationsJson[index].asFloat());
                 }
-                std::cout << "Loaded timing calibrations" << std::endl;
             }
             if (json.find("speAreas") != std::string::npos){
                 const Json::Value speAreasJson = jsonRoot["speAreas"];
                 for (int index = 0; index < speAreasJson.size(); index ++){
                     speAreas.push_back(speAreasJson[index].asFloat());
                 }
-                std::cout << "Loaded spe areas" << std::endl;
             }
             if (json.find("pedestals") != std::string::npos){
                 const Json::Value pedestalsJson = jsonRoot["pedestals"];
                 for (int index = 0; index < pedestalsJson.size(); index ++){
                     pedestals.push_back(pedestalsJson[index].asFloat());
                 }
-                std::cout << "Loaded pedestal corrections" << std::endl;
             }
             if (json.find("sampleRate") != std::string::npos){
                 sampleRate = jsonRoot["sampleRate"].asFloat();
@@ -151,6 +159,268 @@ void OfflineFactory::loadJsonConfig(string configFileName){
         throw invalid_argument(configFileName);
     }
 }
+
+//Function to separate all lumi contents when run is across multiple fills
+std::vector<std::string> OfflineFactory::splitLumiContents(std::string input){
+    std::vector<std::string> output;
+
+    std::string substr = input;
+    substr.erase(remove(substr.begin(), substr.end(), ']'), substr.end()); 
+    substr.erase(remove(substr.begin(), substr.end(), '['), substr.end()); 
+
+    //substr.remove(substr.begin(), substr.end(), '[');
+    //substr.remove(substr.begin(), substr.end(), ']');
+
+    while(substr.find(',') != std::string::npos){
+        std::string newOut = substr.substr(0, substr.find(','));
+        output.push_back(newOut);
+        substr = substr.substr(substr.find(','), substr.size());
+        std::cout << "found new substr: " << newOut << ", cut down old substr: " << substr << std::endl;
+    }
+    
+    output.push_back(substr);
+    return output;
+}
+
+//Function to load good runs list and check if this file is "good"
+void OfflineFactory::checkGoodRunList(std::string goodRunList){
+    if (isSlab) return; //temporary while no good runs
+    std::string json;
+    if (goodRunList.find("{") != std::string::npos){
+        json = goodRunList;
+    }
+    else{
+        std::ifstream t(goodRunList);
+        std::stringstream buffer;
+        buffer << t.rdbuf();
+        json = buffer.str();
+    }
+
+    Json::Reader reader;
+    Json::Value jsonRoot;
+    bool parseSuccess = reader.parse(json, jsonRoot, false);
+    if (parseSuccess){
+
+        if(json.find("data") != std::string::npos){
+            const Json::Value data = jsonRoot["data"];
+            for (int index = 0; index < data.size(); index ++){
+                if ( data[index][0].asInt() == runNumber && stoi(data[index][1].asString()) == fileNumber){
+                    goodRunLoose = data[index][2].asBool();
+                    goodRunMedium = data[index][3].asBool();
+                    goodRunTight = data[index][4].asBool();
+                    goodSingleTrigger = data[index][5].asBool();
+                    goodRunTag = data[index][6].asString();
+                    break;
+                }
+            }
+        }
+    }
+    else{
+        std::cout << "Error: OfflineFactory::checkGoodRunList" << std::endl;
+        throw invalid_argument(goodRunList);
+    }
+}
+
+//Function to load lumis json file
+void OfflineFactory::getLumis(std::string lumiFile){
+    if(isSlab) return; //temporary while there are no lumis
+    std::string json;
+    if (lumiFile.find("{") != std::string::npos){
+        json = lumiFile;
+    }
+    else{
+        std::ifstream t(lumiFile);
+        std::stringstream buffer;
+        buffer << t.rdbuf();
+        json = buffer.str();
+    }
+
+    Json::Reader reader;
+    Json::Value jsonRoot;
+    bool parseSuccess = reader.parse(json, jsonRoot, false);
+    if (parseSuccess){
+        if(json.find("data") != std::string::npos){
+            const Json::Value data = jsonRoot["data"];
+            for (int index = 0; index < data.size(); index ++){
+                //TODO fix it so that the filenumber is an int
+                if ( data[index][0].asInt() == runNumber && stoi(data[index][1].asString()) == fileNumber){
+                    if (data[index][3].isArray()){
+                        std::cout << "Run split among multiple fills" << std::endl;
+
+                        for (int ifill=0; ifill < data[index][3].size(); ifill++){
+                            v_fillId.push_back(data[index][3][ifill].asInt());
+                            v_beamType.push_back(data[index][10][ifill].asString());
+                            v_fillStart.push_back(data[index][13][ifill].asUInt64());
+                            v_fillEnd.push_back(data[index][14][ifill].asUInt64());
+                            v_beamInFill.push_back(data[index][5][ifill].asBool());
+                            if (data[index][11][ifill].isNull() || data[index][12][ifill].isNull() || data[index][2][ifill].isNull()){
+                                v_beamEnergy.push_back(-1);
+                                v_betaStar.push_back(-1);
+                                v_stableBeamStart.push_back(0);
+                                v_stableBeamEnd.push_back(0);
+                                v_lumi.push_back(0);
+                            }
+                            else{
+                                v_beamEnergy.push_back(data[index][11][ifill].asFloat());
+                                v_betaStar.push_back(data[index][12][ifill].asFloat());
+                                v_stableBeamStart.push_back(data[index][15][ifill].asUInt64());
+                                v_stableBeamEnd.push_back(data[index][16][ifill].asUInt64());
+                                v_lumi.push_back(data[index][2][ifill].asFloat());
+                            }
+                        }
+                    }
+                    else{
+                        v_lumi.push_back(data[index][2].asFloat());
+                        v_fillId.push_back(data[index][3].asInt());
+                        v_beamType.push_back(data[index][10].asString());
+                        v_beamEnergy.push_back(data[index][11].asFloat()); 
+                        v_betaStar.push_back(data[index][12].asFloat());
+                        v_fillStart.push_back(data[index][13].asUInt64()); 
+                        v_fillEnd.push_back(data[index][14].asUInt64());
+                        v_stableBeamStart.push_back(data[index][15].asUInt64());
+                        v_stableBeamEnd.push_back(data[index][16].asUInt64());
+                        v_beamInFill.push_back(data[index][5].asBool());
+
+                    }
+                }
+                /*if (!v_lumi.empty()) std::cout << "lumi: " << v_lumi.back() << std::endl;
+                if (!v_fillId.empty())std::cout<< "\n fill: " << v_fillId.back() << std::endl;
+                if (!v_beamType.empty())std::cout<< "\n type: " << v_beamType.back() << std::endl;
+                if (!v_beamEnergy.empty())std::cout<< "\n energy: " << v_beamEnergy.back()  << std::endl;
+                if (!v_betaStar.empty())std::cout<< "\n beta star: " << v_betaStar.back() << std::endl;
+                if (!v_fillStart.empty())std::cout<< "\n fill start: " << v_fillStart.back()<< std::endl;
+                if (!v_fillEnd.empty())std::cout<< "\n fill end: " << v_fillEnd.back()<< std::endl;
+                if (!v_stableBeamStart.empty())std::cout<< "\n stable beam start: " << v_stableBeamStart.back() << std::endl;
+                if (!v_stableBeamEnd.empty())std::cout<< "\n stable beam end: " << v_stableBeamEnd.back() << std::endl;
+                if (!v_beamInFill.empty())std::cout<< "\n beam in fill: " << v_beamInFill.back() << std::endl;*/
+            }
+
+        }
+    }
+    else{
+        std::cout << "Error: OfflineFactory::getLumis" << std::endl;
+        throw invalid_argument(lumiFile);
+    }
+}
+
+void OfflineFactory::setGoodRuns(){
+    outputTreeContents.goodRunLoose = goodRunLoose;
+    outputTreeContents.goodRunMedium = goodRunMedium;
+    outputTreeContents.goodRunTight = goodRunTight;
+    outputTreeContents.goodSingleTrigger = goodSingleTrigger;
+}
+
+void OfflineFactory::getEventLumis(){
+    Long64_t event_time = outputTreeContents.event_time_fromTDC;
+
+    if (v_fillEnd.size() > 0 && v_fillStart.size() > 0){
+        auto maxFillEnd = std::max_element(v_fillEnd.begin(), v_fillEnd.end());
+        auto minFillBegin = std::min_element(v_fillStart.begin(), v_fillStart.end());
+      
+
+        if (event_time > *maxFillEnd){
+            outputTreeContents.beamOn=false;
+            outputTreeContents.lumi = -1;
+            outputTreeContents.fillId = -1;
+            outputTreeContents.beamType = TString("None");
+            outputTreeContents.beamEnergy = -1;
+            outputTreeContents.betaStar = -1;
+            outputTreeContents.fillStart = 0;
+            outputTreeContents.fillEnd = 0;
+            outputTreeContents.beamInFill = false;
+            if(firstWarning) {
+                cout << "Warning some events occured after last fill time in mqLumis" << endl;
+                firstWarning=false;
+            }
+            return;
+        }
+
+        if (event_time < *minFillBegin){
+            outputTreeContents.beamOn=false;
+            outputTreeContents.lumi = -1;
+            outputTreeContents.fillId = -1;
+	    outputTreeContents.beamType = TString("None");
+	    outputTreeContents.beamEnergy = -1;
+	    outputTreeContents.betaStar = -1;
+	    outputTreeContents.fillStart = 0;
+	    outputTreeContents.fillEnd = 0;
+	    outputTreeContents.beamInFill = false;        
+	    if(firstWarning){
+	        cout << "Warning some event occured before first fill time in mqLumis" << endl;
+	        firstWarning=false;
+            }
+	    return;
+	}
+    }
+
+    for(int ifill=0; ifill < v_fillId.size(); ifill++){
+        //cout << "event time: " << event_time << ", fill start: " << v_fillStart[ifill]/long(1e3) << ", fill end: " << v_fillEnd[ifill]/long(1e3) << endl;
+        if (event_time >= v_fillStart[ifill] && event_time <= v_fillEnd[ifill]){
+            //cout << "Found good fill" << endl;
+            outputTreeContents.lumi = v_lumi[ifill];
+            outputTreeContents.fillId = v_fillId[ifill];
+            outputTreeContents.beamType = v_beamType[ifill];
+            outputTreeContents.beamEnergy = v_beamEnergy[ifill];
+            outputTreeContents.betaStar = v_betaStar[ifill];
+            outputTreeContents.fillStart = v_fillStart[ifill];
+            outputTreeContents.fillEnd = v_fillEnd[ifill];
+            outputTreeContents.beamInFill = v_beamInFill[ifill];
+            if(event_time >= v_stableBeamStart[ifill] && event_time <= v_stableBeamEnd[ifill]) outputTreeContents.beamOn=true;
+            else outputTreeContents.beamOn=false;
+            return;
+        }
+    }
+    outputTreeContents.beamOn=false;
+    outputTreeContents.lumi = -1;
+    outputTreeContents.fillId = -1;
+    outputTreeContents.beamType = TString("None");
+    outputTreeContents.beamEnergy = -1;
+    outputTreeContents.betaStar = -1;
+    outputTreeContents.fillStart = 0;
+    outputTreeContents.fillEnd = 0;   
+    outputTreeContents.beamInFill = false; 
+    if(firstWarning){
+        cout << "Warning did not find matching fill time for some events" << endl;
+        firstWarning=false;
+    }
+    return;
+}
+
+void OfflineFactory::setTotalLumi(){
+    float totalLumi = 0;
+    for(int ifill=0; ifill < v_fillId.size(); ifill++){
+        if (v_stableBeamStart[ifill]==0 && v_stableBeamEnd[ifill]==0) continue;
+        else if (firstTDC_time > v_stableBeamEnd[ifill] && lastTDC_time > v_stableBeamEnd[ifill]) continue;
+        else if (firstTDC_time < v_stableBeamStart[ifill] && lastTDC_time < v_stableBeamStart[ifill]) continue;
+        else if (firstTDC_time < v_stableBeamStart[ifill] && lastTDC_time >= v_stableBeamEnd[ifill]){
+            totalLumi+=v_lumi[ifill];
+        }
+        else if(firstTDC_time < v_stableBeamStart[ifill] && lastTDC_time < v_stableBeamEnd[ifill]){
+            ulong stable_duration = v_stableBeamEnd[ifill] - v_stableBeamStart[ifill];
+            ulong mq_duration = (ulong)lastTDC_time - v_stableBeamStart[ifill];
+            totalLumi+=v_lumi[ifill] * ((double)mq_duration/(double)stable_duration);
+        }
+        else if(firstTDC_time > v_stableBeamStart[ifill] && lastTDC_time >= v_stableBeamEnd[ifill]){
+            ulong stable_duration = v_stableBeamEnd[ifill] - v_stableBeamStart[ifill];
+            ulong mq_duration = v_stableBeamEnd[ifill] - (ulong)firstTDC_time;
+            totalLumi+=v_lumi[ifill] * ((double)mq_duration/(double)stable_duration);
+        }
+        else if(firstTDC_time > v_stableBeamStart[ifill] && lastTDC_time < v_stableBeamEnd[ifill]){
+            ulong stable_duration = v_stableBeamEnd[ifill] - v_stableBeamStart[ifill];
+            ulong mq_duration = lastTDC_time - firstTDC_time;
+            totalLumi += v_lumi[ifill] * ((double)mq_duration/(double)stable_duration);
+        }
+    }
+    cout << "Total lumi in this file: " << totalLumi << endl;
+
+    TBranch* b_fileLumi = outTree->Branch("totalFileLumi", &totalLumi);
+    for(int i=0; i<inTree->GetEntries(); i++){
+        outTree->GetEntry(i);
+        b_fileLumi->Fill();
+    }
+}
+
+
 //Validate json input
 void OfflineFactory::validateInput(){
     //HACKY check if tag has been added
@@ -164,24 +434,35 @@ void OfflineFactory::validateInput(){
     }
     else{ 
         for (int ic = 0; ic < numChan-1; ic++) nConsecSamples.push_back(nConsecSamples.at(0));
+        outputTreeContents.nConsecSamples_ = nConsecSamples;
+
     }
     if (nConsecSamplesEnd.size() > 1){
         if (nConsecSamplesEnd.size() != numChan) throw length_error("nConsecSamplesEnd should be length "+std::to_string(numChan) + "or 1");
     }
     else{ 
         for (int ic = 0; ic < numChan-1; ic++) nConsecSamplesEnd.push_back(nConsecSamplesEnd.at(0));
+        outputTreeContents.nConsecSamplesEnd_ = nConsecSamplesEnd;
     }
     if (lowThresh.size() > 1){
         if (lowThresh.size() != numChan) throw length_error("lowThresh should be length "+std::to_string(numChan) + "or 1");
     }
     else{ 
         for (int ic = 0; ic < numChan-1; ic++) lowThresh.push_back(lowThresh.at(0));
+        outputTreeContents.lowThreshold_ = lowThresh;
     }
     if (highThresh.size() > 1){
         if (highThresh.size() != numChan) throw length_error("highThresh should be length "+std::to_string(numChan) + "or 1");
     }
-    else{ 
+    else {
         for (int ic = 0; ic < numChan-1; ic++) highThresh.push_back(highThresh.at(0));
+        if(variableThresholds && !isSlab && !isSim){
+            for (int ic = 0; ic < numChan; ic++){
+                if (outputTreeContents.v_triggerThresholds[ic]*10e3 > 50) continue; //if pannel keep default
+                highThresh[ic] = outputTreeContents.v_triggerThresholds[ic]*10e3 - thresholdDecrease;
+            }
+        }
+        outputTreeContents.highThreshold_ = highThresh;
     }
     ////Calibrations
     if (timingCalibrations.size() > 0){
@@ -192,7 +473,7 @@ void OfflineFactory::validateInput(){
     }
     if (pedestals.size() > 0){
         if (pedestals.size() != numChan) throw length_error("pedestals should be length "+std::to_string(numChan));
-        for (int ic = 0; ic < numChan; ic++) pedestals[ic] = round(pedestals[ic]);
+        for (int ic = 0; ic < numChan; ic++) pedestals[ic] = 0;
     }
     else{ 
         for (int ic = 0; ic < numChan; ic++) pedestals.push_back(0);
@@ -204,6 +485,26 @@ void OfflineFactory::validateInput(){
         for (int ic = 0; ic < numChan; ic++) speAreas.push_back(1);
     }
 }
+
+//Get pulse mean and RMS for 30 samples before pulse
+const pair<float, float> OfflineFactory::getPrePulseVar(TH1D* wave, float time){
+    int startbin = wave->FindBin(time-prePulseRange);
+    int endbin = wave->FindBin(time);
+    int n_sb = 0;
+    float sum_sb=0.;
+    float sum2_sb=0.;
+    for(int ibin=startbin; ibin <= endbin; ibin++){
+        sum_sb = sum_sb + wave->GetBinContent(ibin);
+        sum2_sb = sum2_sb + pow(wave->GetBinContent(ibin),2);
+        n_sb++;
+    }
+    if(n_sb == 0) n_sb = 1.;
+    float mean = sum_sb/n_sb;
+    float RMS =pow( sum2_sb/n_sb - pow(mean,2), 0.5);
+
+    return pair<float, float>(mean, RMS);
+}
+
 //Convenience function to produce offline tree output
 //Makedisplays and then not save the output tree //makeoutputtree is not called
 void OfflineFactory::processDisplays(vector<int> & eventsToDisplay,TString displayDirectory){
@@ -228,7 +529,6 @@ void OfflineFactory::processDisplays( vector<int> & eventsToDisplay,TString disp
 void OfflineFactory::process(){
 
     // Testing json stuff
-
     makeOutputTree();
     inFile = TFile::Open(inFileName, "READ");
     readMetaData();
@@ -254,20 +554,46 @@ void OfflineFactory::process(TString inFileName,TString outFileName,int runNumbe
 //Declare branches for offline tree output
 void OfflineFactory::prepareOutBranches(){
     //Meta
-    outTree->Branch("event",&outputTreeContents.event);
-    outTree->Branch("runNumber",&outputTreeContents.runNumber);
-    outTree->Branch("fileNumber",&outputTreeContents.fileNumber);
+    outTree->Branch("event", &outputTreeContents.event);
+    outTree->Branch("runNumber", &outputTreeContents.runNumber);
+    outTree->Branch("fileNumber", &outputTreeContents.fileNumber);
     outTree->Branch("boardsMatched", &outputTreeContents.boardsMatched);
     outTree->Branch("DAQEventNumber", &outputTreeContents.DAQEventNumber);
+    outTree->Branch("daqFileOpen", &outputTreeContents.daqFileOpen);
+    outTree->Branch("daqFileClose", &outputTreeContents.daqFileClose);
+    outTree->Branch("maxPulseIndex", &outputTreeContents.maxPulseIndex);
+
+    outTree->Branch("nConsecSamples", &outputTreeContents.nConsecSamples_);
+    outTree->Branch("nConsecSamplesEnd", &outputTreeContents.nConsecSamplesEnd_);
+    outTree->Branch("highThreshold", &outputTreeContents.highThreshold_);
+    outTree->Branch("lowThreshold", &outputTreeContents.lowThreshold_);
+
+    outTree->Branch("totalFillLumi",&outputTreeContents.lumi);
+    outTree->Branch("fillId",&outputTreeContents.fillId);
+    outTree->Branch("beamType",&outputTreeContents.beamType);
+    outTree->Branch("beamEnergy",&outputTreeContents.beamEnergy);
+    outTree->Branch("betaStar",&outputTreeContents.betaStar);
+    outTree->Branch("beamOn",&outputTreeContents.beamOn);
+    outTree->Branch("fillStart",&outputTreeContents.fillStart);
+    outTree->Branch("fillEnd",&outputTreeContents.fillEnd);
+    outTree->Branch("beamInFill",&outputTreeContents.beamInFill);
+
+    outTree->Branch("goodRunLoose", &outputTreeContents.goodRunLoose);
+    outTree->Branch("goodRunMedium", &outputTreeContents.goodRunMedium);
+    outTree->Branch("goodRunTight", &outputTreeContents.goodRunTight);
+    outTree->Branch("goodSingleTrigger", &outputTreeContents.goodSingleTrigger);    
 
     // May need to change for DRS input
     outTree->Branch("triggerThreshold",&outputTreeContents.v_triggerThresholds);
     outTree->Branch("triggerEnable",&outputTreeContents.v_triggerEnable);
     outTree->Branch("triggerMajority",&outputTreeContents.v_triggerMajority);
+    outTree->Branch("triggerPolarity",&outputTreeContents.v_triggerPolarity);
     outTree->Branch("triggerLogic",&outputTreeContents.v_triggerLogic);
     outTree->Branch("dynamicPedestal",&outputTreeContents.v_dynamicPedestal);
     outTree->Branch("sidebandMean",&outputTreeContents.v_sideband_mean);
     outTree->Branch("sidebandRMS",&outputTreeContents.v_sideband_RMS);
+    outTree->Branch("sidebandMeanRaw",&outputTreeContents.v_sideband_mean_raw);
+    outTree->Branch("sidebandRMSRaw",&outputTreeContents.v_sideband_RMS_raw);
     outTree->Branch("maxThreeConsec",&outputTreeContents.v_max_threeConsec);
     outTree->Branch("chan",&outputTreeContents.v_chan);
     outTree->Branch("chanWithinBoard",&outputTreeContents.v_chanWithinBoard);
@@ -285,6 +611,7 @@ void OfflineFactory::prepareOutBranches(){
     outTree->Branch("fallSamples",&outputTreeContents.v_fallSamples);
     outTree->Branch("ipulse",&outputTreeContents.v_ipulse);
     outTree->Branch("npulses",&outputTreeContents.v_npulses);
+    outTree->Branch("pulseIndex",&outputTreeContents.v_pulseIndex);
     outTree->Branch("time",&outputTreeContents.v_time);
     outTree->Branch("timeFit",&outputTreeContents.v_timeFit);
     outTree->Branch("time_module_calibrated",&outputTreeContents.v_time_module_calibrated);
@@ -292,6 +619,10 @@ void OfflineFactory::prepareOutBranches(){
     outTree->Branch("duration",&outputTreeContents.v_duration);
     outTree->Branch("delay",&outputTreeContents.v_delay);
     outTree->Branch("max",&outputTreeContents.v_max);
+    outTree->Branch("iMaxPulseLayer",&outputTreeContents.v_iMaxPulseLayer);
+    outTree->Branch("maxPulseTime",&outputTreeContents.v_maxPulseTime);
+    outTree->Branch("prePulseMean", &outputTreeContents.v_prePulseMean);
+    outTree->Branch("prePulseRMS", &outputTreeContents.v_prePulseRMS);
 
     outTree->Branch("present",&outputTreeContents.present);
     outTree->Branch("event_trigger_time_tag",&outputTreeContents.event_trigger_time_tag);
@@ -315,17 +646,19 @@ void OfflineFactory::prepareOutBranches(){
     outTree->Branch("tEvtNum", &outputTreeContents.tEvtNum);
     outTree->Branch("tRunNum", &outputTreeContents.tRunNum);
     outTree->Branch("tTBEvent", &outputTreeContents.tTBEvent);
+
+    if (isSim){
+        outTree->Branch("eventWeight", &outputTreeContents.eventWeight);
+    }
 }
 //Clear vectors and reset 
 void OfflineFactory::resetOutBranches(){
     // May need to change for DRS input
-    outputTreeContents.v_triggerThresholds.clear();
-    outputTreeContents.v_triggerEnable.clear();
-    outputTreeContents.v_triggerMajority.clear();
-    outputTreeContents.v_triggerLogic.clear();
     outputTreeContents.v_dynamicPedestal.clear();
     outputTreeContents.v_sideband_mean.clear();
     outputTreeContents.v_sideband_RMS.clear();
+    outputTreeContents.v_sideband_mean_raw.clear();
+    outputTreeContents.v_sideband_RMS_raw.clear();
     outputTreeContents.v_max_threeConsec.clear();
     outputTreeContents.v_chan.clear();
     outputTreeContents.v_chanWithinBoard.clear();
@@ -343,6 +676,7 @@ void OfflineFactory::resetOutBranches(){
     outputTreeContents.v_fallSamples.clear();
     outputTreeContents.v_ipulse.clear();
     outputTreeContents.v_npulses.clear();
+    outputTreeContents.v_pulseIndex.clear();
     outputTreeContents.v_time.clear();
     outputTreeContents.v_time_module_calibrated.clear();
     outputTreeContents.v_timeFit.clear();
@@ -350,6 +684,8 @@ void OfflineFactory::resetOutBranches(){
     outputTreeContents.v_duration.clear();
     outputTreeContents.v_delay.clear();
     outputTreeContents.v_max.clear();
+    outputTreeContents.v_maxPulseTime.clear();
+    outputTreeContents.v_iMaxPulseLayer.clear();
     outputTreeContents.present.clear();
     outputTreeContents.event_trigger_time_tag.clear();
     outputTreeContents.event_time.clear();
@@ -361,14 +697,38 @@ void OfflineFactory::resetOutBranches(){
     outputTreeContents.v_groupTDC_g5.clear();
     outputTreeContents.v_groupTDC_g6.clear();
     outputTreeContents.v_groupTDC_g7.clear();
+    outputTreeContents.v_prePulseMean.clear();
+    outputTreeContents.v_prePulseRMS.clear();
 }
+
+ulong OfflineFactory::getUnixTime(TString& timeIn){
+    const char* timeStr = timeIn.Data();
+
+    std::tm tm_ = {};
+    if (strptime(timeStr, "%Y-%m-%d_%Hh%Mm%Ss", &tm_) == nullptr) {
+        std::cerr << "Failed to parse the time." << std::endl;
+        return 1;
+    }
+
+    std::time_t unixTime = std::mktime(&tm_);
+
+    if (unixTime == -1) {
+        std::cerr << "Failed to convert to Unix timestamp." << std::endl;
+        return 1;
+    }
+
+    return unixTime;
+}
+
 //Read meta data from configuration
 void OfflineFactory::readMetaData(){
     //May need to change for DRS input
     TTree * metadata;
     metadata = (TTree*) inFile->Get("Metadata");
-    if (!isDRS){
+    if (!isDRS && !isSim){
         metadata->SetBranchAddress("configuration", &cfg);
+        metadata->SetBranchAddress("fileOpenTime", &fileOpenTime);
+        metadata->SetBranchAddress("fileCloseTime", &fileCloseTime);
         metadata->GetEntry(0);
 
         outputTreeContents.runNumber = runNumber;
@@ -382,6 +742,9 @@ void OfflineFactory::readMetaData(){
         sampleRate = 1.0/(secondsPerSample*1e+09);
         cout << "Overwriting sample rate from metadata: " << sampleRate <<" GHz" << endl; 
         //cout<<"secondspersample = "<<secondsPerSample<<" samplingrate="<<1.0/(secondsPerSample*1e+09)<< "GHz"<<endl;
+
+        outputTreeContents.daqFileOpen = getUnixTime(*fileOpenTime);
+        outputTreeContents.daqFileClose = getUnixTime(*fileCloseTime);
             
         //Read trigger info and set channel array
         for (int ic =0; ic < numChan; ic++){
@@ -389,15 +752,22 @@ void OfflineFactory::readMetaData(){
             boardArray->SetAt(ic/16,ic);
             float triggerThresh = cfg->digitizers[ic/16].channels[ic % 16].triggerThreshold;
             bool triggerEnable = cfg->digitizers[ic/16].channels[ic % 16].triggerEnable;
+            int triggerPolarity = cfg->digitizers[ic/16].channels[ic % 16].triggerPolarity;
             int triggerMajority = cfg->digitizers[ic/16].GroupTriggerMajorityLevel;
             int triggerLogic = cfg->digitizers[ic/16].GroupTriggerLogic;
             outputTreeContents.v_triggerThresholds.push_back(triggerThresh);
             outputTreeContents.v_triggerEnable.push_back(triggerEnable);
             outputTreeContents.v_triggerMajority.push_back(triggerMajority);
             outputTreeContents.v_triggerLogic.push_back(triggerLogic);
+            outputTreeContents.v_triggerPolarity.push_back(triggerPolarity);
+
+            /*if (true){
+                std::cout << "high thresh " << highThresh[ic] << std::endl;
+                highThresh[ic] = triggerThresh*10e3 - 5;
+            }*/
         }
     }
-    else{
+    else if(!isSim){
         //ADD SOMETHING TO DRS INPUT SUCH THAT THIS CAN BE EASILY READ!
         //output_trees_test/CMS31.root
         metadata->SetBranchAddress("samplingRate", &sampleRate);
@@ -413,6 +783,23 @@ void OfflineFactory::readMetaData(){
             boardArray->AddAt(boardsDRS[ic],ic);
         }
     }
+    // For sim data
+    else{
+      outputTreeContents.runNumber = runNumber;
+      outputTreeContents.fileNumber = fileNumber;
+      float secondsPerSample;
+      metadata->SetBranchAddress("secondsPerSample", &secondsPerSample);
+      metadata->SetBranchAddress("numChan", &numChan);
+      metadata->GetEntry(0);
+      chanArray = new TArrayI(numChan);
+      boardArray = new TArrayI(numChan);
+      sampleRate = 1.0/(secondsPerSample*1e+09);
+      for (int ic=0; ic < numChan; ++ic){
+        chanArray->SetAt(ic % 16, ic);
+        boardArray->SetAt(ic/16,ic);
+      }
+    }
+      
 }
 
 void OfflineFactory::makeOutputTree(){
@@ -449,7 +836,6 @@ void defineColors(vector<int>colors, vector<TColor*> palette, vector<float> reds
 */
 //Display making
 void OfflineFactory::displayEvent(int event, vector<vector<pair<float,float> > >& bounds,TString displayDirectory){
-
     TCanvas c("c1","",1400,800);
     gPad->SetRightMargin(0.45);
     gStyle->SetGridStyle(3);
@@ -467,7 +853,7 @@ void OfflineFactory::displayEvent(int event, vector<vector<pair<float,float> > >
     vector<vector<pair<float,float>>> boundsShifted;
     vector<TH1D*> wavesShifted;
     vector<int> index;
-    float originalMaxHeights[80];
+    float originalMaxHeights[80]; // FIXME: This is hardcoded to be the number of channels in the bar detector (?)
     for(uint ic=0;ic<bounds.size();ic++){
         int chan = chanArray->GetAt(ic);
         index.push_back(ic);
@@ -494,12 +880,16 @@ void OfflineFactory::displayEvent(int event, vector<vector<pair<float,float> > >
         }
         */
         //FIX above if needed
-        
+
+        /*
+          Obtain maximum and minimum heights as well as maximum and minimum times to
+          shift the waveforms together on the same canvas
+         */ 
         if(boundShifted.size()>0 || waveShifted->GetMaximum()>drawThresh){
             chanList.push_back(ic);
             //FIX here: Check for the run for beam state. By default set to on for now
             TString beamState = "on";
-            waveShifted->SetTitle(Form("Run %i, File %i, Event %i;Uncalibrated Time [ns];Amplitude [mV];",runNumber,fileNumber,event));
+            waveShifted->SetTitle(Form("Run %i, File %i, Event %i;Calibrated Time [ns];Amplitude [mV];",runNumber,fileNumber,event));
             waveShifted->SetAxisRange(0,1024.*1.1/sampleRate);
             //Keep track of max amplitude
             if(waveShifted->GetMaximum()>maxheight) maxheight=waveShifted->GetMaximum();
@@ -540,7 +930,8 @@ void OfflineFactory::displayEvent(int event, vector<vector<pair<float,float> > >
     float rangeMinX = timeRange[0];
     float rangeMaxY = maxheight;
     float rangeMinY = minheight;
-    
+
+    // FIXME: This makes no sense if you just set the values to be equal
     if (rangeMaxY > -999) maxheight = rangeMaxY;
 
     if (rangeMinX < 0) timeRange[0]*=1.1;
@@ -556,8 +947,8 @@ void OfflineFactory::displayEvent(int event, vector<vector<pair<float,float> > >
         int chan = chanArray->GetAt(ic);
         originalMaxHeights[ic] = wavesShifted[ic]->GetMaximum();
         if (rangeMinY > -999) wavesShifted[ic]->SetMinimum(rangeMinY);
-        wavesShifted[ic]->SetMaximum(maxheight);
-        wavesShifted[ic]->SetAxisRange(timeRange[0],timeRange[1],"X");
+	wavesShifted[ic]->SetMaximum(maxheight);
+	wavesShifted[ic]->SetAxisRange(timeRange[0],timeRange[1],"X");
         
         int column= chanMap[ic][0];
         int row= chanMap[ic][1];
@@ -565,12 +956,11 @@ void OfflineFactory::displayEvent(int event, vector<vector<pair<float,float> > >
         int type= chanMap[ic][3];
         int colorIndex = ic;
         if(ic>63) colorIndex=ic-64;
-        //cout<<"Channel,ic,column,row,layer,type: "<<i<<" "<<ic<<" "<<column<<" "<<row<<" "<<layer<<" "<<type<<endl;
         h1cosmetic(wavesShifted[ic],colorIndex,colors);
         if(type==1) wavesShifted[ic]->SetLineStyle(3);
         if(type==2) wavesShifted[ic]->SetLineStyle(7);
         if(i==0) wavesShifted[ic]->Draw("hist");
-        else wavesShifted[ic]->Draw("hist same");
+	else wavesShifted[ic]->Draw("hist same");
         
         TLatex tlabelpeak;
         if(wavesShifted[ic]->GetMaximum()>50){
@@ -768,7 +1158,6 @@ void OfflineFactory::displayEvent(int event, vector<vector<pair<float,float> > >
             pave->Draw();
         }
         
-        //cout<<"pave: i,ic,column,row,layer,type: Draw "<<i<<" "<<ic<<" "<<column<<" "<<row<<" "<<layer<<" "<<type<<" "<<colorIndex<<endl;
         int draw_bounds = 0;
         for(int index_check=0; index_check<10;index_check++){ 
             if(ic==index[index_check]) draw_bounds++;}
@@ -833,9 +1222,9 @@ void OfflineFactory::displaychannelEvent(int event, vector<vector<pair<float,flo
             chanList.push_back(ic);
             //FIX here: Check for the run for beam state. By default set to on for now
             TString beamState = "on";
-            waveShifted->SetTitle(Form("Run %i, File %i, Event %i, Channel %i;Uncalibrated Time [ns];Amplitude [mV];",runNumber,fileNumber,event,ic));
-            waveShifted->SetAxisRange(0,1024.*1.1/sampleRate);
-            //Keep track of max amplitude
+            waveShifted->SetTitle(Form("Run %i, File %i, Event %i, Channel %i;Calibrated Time [ns];Amplitude [mV];",runNumber,fileNumber,event,ic));
+	    waveShifted->SetAxisRange(0,1024.*1.1/sampleRate);
+	    //Keep track of max amplitude
             if(waveShifted->GetMaximum()>maxheight) maxheight=waveShifted->GetMaximum();
             if(waveShifted->GetMinimum()<minheight) minheight=waveShifted->GetMinimum();
             
@@ -863,11 +1252,9 @@ void OfflineFactory::displaychannelEvent(int event, vector<vector<pair<float,flo
 
     if (rangeMinX < 0) timeRange[0]*=1.1;
     else timeRange[0] = rangeMinX*0.9;
-    //cout<<"timeRange="<<timeRange[1]<<endl;
     
     if (rangeMaxX < 0) timeRange[1]= min(0.9*timeRange[1],1024./sampleRate);
     else timeRange[1] = max(1.1*timeRange[1],1024./sampleRate);
-    //cout<<"timeRange="<<timeRange[1]<<endl;
     
     float depth = 0.075*chanList.size();
     TLegend leg(0.45,0.9-depth,0.65,0.9);
@@ -942,7 +1329,6 @@ void OfflineFactory::displaychannelEvent(int event, vector<vector<pair<float,flo
         float drawThresh=15;
         int ic = chanList[i];
         int chan = chanArray->GetAt(ic);
-        //cout<<ic<<" ic,chan "<<chan<<endl;
         int column= chanMap[ic][0];
         int row= chanMap[ic][1];
         int layer= chanMap[ic][2];
@@ -1034,7 +1420,6 @@ void OfflineFactory::displaychannelEvent(int event, vector<vector<pair<float,flo
       }*/
         
         if(type==0){
-            //cout<<"Column="<<column<<" , Row="<<row<<" layer="<<layer<<" type="<<type<<" colorindex="<<colorIndex<<endl;
             float xpos = xstart[layer]+((column)*0.017)-0.002;
             float ypos = ystart[row]-0.005;
             if(row==3) ypos = ystart[row-1]+0.03;
@@ -1105,7 +1490,6 @@ void OfflineFactory::displaychannelEvent(int event, vector<vector<pair<float,flo
 
         
         
-        //cout<<"pave: i,ic,column,row,layer,type: Draw "<<i<<" "<<ic<<" "<<column<<" "<<row<<" "<<layer<<" "<<type<<" "<<colorIndex<<endl;
         tla.SetTextColor(colors[colorIndex]);
         tla.SetTextSize(0.04);
         //tla.DrawLatexNDC(headerX,currentYpos,Form("Channel %i, V_{max} = %0.0f, N_{pulses}= %i",ic,originalMaxHeights[ic],(int)boundsShifted[ic].size()));
@@ -1130,7 +1514,6 @@ void OfflineFactory::displaychannelEvent(int event, vector<vector<pair<float,flo
         //added
         //channel loop closed
     
-        //cout<<"Display directory is "<<displayDirectory<<endl;
         TString displayName;
         displayName=Form(displayDirectory+"Run%i_File%i_Event%i_Version_%s_channel_%i.pdf",runNumber,fileNumber,event,"shorttagplaceholder",ic); 
         c.SaveAs(displayName);
@@ -1146,7 +1529,12 @@ void OfflineFactory::displaychannelEvent(int event, vector<vector<pair<float,flo
 }
 
 vector<vector<pair<float,float>>> OfflineFactory::readWaveDataPerEvent(int i){
+
     inTree->GetEntry(i);
+    if ( i % 1000 == 0) clog << "Processing event " << i << endl;
+    if (isSim){
+        outputTreeContents.eventWeight = eventWeight;
+    }
     if (!isDRS) {
         //Read timing information
         if(initSecs<0){ //if timestamps for first event are uninitialized
@@ -1162,6 +1550,7 @@ vector<vector<pair<float,float>>> OfflineFactory::readWaveDataPerEvent(int i){
 
         //Check if rollover has happened since last event: if previous time is more than 10 minutes later than current time 
         //NB events are not written strictly in chronological order
+        //TODO this is not perfect because events can come out of order occasionally
         Long64_t diff = prevTDC - thisTDC;
         if(diff > 1.2e+11) nRollOvers++;
         //For each tDC rollover: add max value: pow(2,40)
@@ -1169,27 +1558,29 @@ vector<vector<pair<float,float>>> OfflineFactory::readWaveDataPerEvent(int i){
         // outputTreeContents.event_t_string = TTimeStamp(outputTreeContents.event_time_fromTDC).AsString("s");
         //update previous TDC holder for next event
         prevTDC = thisTDC;
-        for (int ib =0; ib < numBoards; ib++){
+        if (!isSim){
+            for (int ib =0; ib < numBoards; ib++){
 
-            int secs = evt->digitizers[ib].DAQTimeStamp.GetSec();
-            //This defines the time in seconds in standard unix epoch since 1970
-            outputTreeContents.event_time.push_back(secs);
+                int secs = evt->digitizers[ib].DAQTimeStamp.GetSec();
+                //This defines the time in seconds in standard unix epoch since 1970
+                outputTreeContents.event_time.push_back(secs);
 
-            outputTreeContents.event_trigger_time_tag.push_back(evt->digitizers[ib].TriggerTimeTag);
-            //
-            //event_t_string = evt->digitizers[0].DAQTimeStamp.AsString("s");
-            //
-            // Can probably uncomment this bit once all groups connected?
-            outputTreeContents.v_groupTDC_g0.push_back(evt->digitizers[ib].TDC[0]);
-            outputTreeContents.v_groupTDC_g1.push_back(evt->digitizers[ib].TDC[1]);
-            outputTreeContents.v_groupTDC_g2.push_back(evt->digitizers[ib].TDC[2]);
-            outputTreeContents.v_groupTDC_g3.push_back(evt->digitizers[ib].TDC[3]);
-            outputTreeContents.v_groupTDC_g4.push_back(evt->digitizers[ib].TDC[4]);
-            outputTreeContents.v_groupTDC_g5.push_back(evt->digitizers[ib].TDC[5]);
-            outputTreeContents.v_groupTDC_g6.push_back(evt->digitizers[ib].TDC[6]);
-            outputTreeContents.v_groupTDC_g7.push_back(evt->digitizers[ib].TDC[7]);
+                outputTreeContents.event_trigger_time_tag.push_back(evt->digitizers[ib].TriggerTimeTag);
+                //
+                //event_t_string = evt->digitizers[0].DAQTimeStamp.AsString("s");
+                //
+                // Can probably uncomment this bit once all groups connected?
+                outputTreeContents.v_groupTDC_g0.push_back(evt->digitizers[ib].TDC[0]);
+                outputTreeContents.v_groupTDC_g1.push_back(evt->digitizers[ib].TDC[1]);
+                outputTreeContents.v_groupTDC_g2.push_back(evt->digitizers[ib].TDC[2]);
+                outputTreeContents.v_groupTDC_g3.push_back(evt->digitizers[ib].TDC[3]);
+                outputTreeContents.v_groupTDC_g4.push_back(evt->digitizers[ib].TDC[4]);
+                outputTreeContents.v_groupTDC_g5.push_back(evt->digitizers[ib].TDC[5]);
+                outputTreeContents.v_groupTDC_g6.push_back(evt->digitizers[ib].TDC[6]);
+                outputTreeContents.v_groupTDC_g7.push_back(evt->digitizers[ib].TDC[7]);
 
-            outputTreeContents.present.push_back(evt->digitizers[ib].DataPresent);
+                outputTreeContents.present.push_back(evt->digitizers[ib].DataPresent);
+            }
         }
         loadWavesMilliDAQ();
     }
@@ -1197,22 +1588,35 @@ vector<vector<pair<float,float>>> OfflineFactory::readWaveDataPerEvent(int i){
     //Loop over channels
     vector<vector<pair<float,float> > > allPulseBounds;
     outputTreeContents.boardsMatched = true;
-    for(int idig=0; idig < nDigitizers; idig++){
-        if(evt->digitizers[idig].TDC[0] == 0) {
-            outputTreeContents.boardsMatched = false;
-            break;
+    if(!isSim){
+        for(int idig=0; idig < nDigitizers; idig++){
+
+            //correct all pulses to the TDC time of digitizer 0
+            float thisCorrection = (float)5*((int64_t)evt->digitizers[idig].TDC[0] - (int64_t)evt->digitizers[0].TDC[0]);
+            tdcCorrection[idig] = thisCorrection; //5ns per TDC clock
+            if(evt->digitizers[idig].TDC[0] == 0) {
+                outputTreeContents.boardsMatched = false;
+            }
+
+        }
+        //if boards are not matched don't overcorrect times (will throw out these events offline anyway)
+        if (outputTreeContents.boardsMatched == false) {
+            for(int i=0; i < sizeof(tdcCorrection)/sizeof(tdcCorrection[0]); i++){
+                tdcCorrection[i] = 0;
+            }
         }
     }
+    totalPulseCount = 0;
     for(int ic=0;ic<numChan;ic++){
         //Pulse finding
         allPulseBounds.push_back(processChannel(ic));
     }   
 
     outputTreeContents.DAQEventNumber = evt->DAQEventNumber;
-    
     return allPulseBounds;
 }
     
+
 void OfflineFactory::displayEvents(std::vector<int> & eventsToDisplay,TString displayDirectory){
     validateInput();
     inTree = (TTree*)inFile->Get("Events"); 
@@ -1236,19 +1640,22 @@ void OfflineFactory::displayEvents(std::vector<int> & eventsToDisplay,TString di
 void OfflineFactory::readWaveData(){
     validateInput();
     inTree = (TTree*)inFile->Get("Events"); 
+    if (inTree->GetEntries() == 0){
+        throw runtime_error("There are no entries in this tree... exiting");
+    }
     triggerFileMatched = false;
     if (friendFileName != "") {
-	addFriendTree();
-	triggerFileMatched = true;
+	  addFriendTree();
+	  triggerFileMatched = true;
     }
     loadBranches();
     // int maxEvents = 1;
     int maxEvents = inTree->GetEntries();
     cout<<"Processing "<<maxEvents<<" events in this file"<<endl;
-    cout<<"Starting event loop"<<endl;
     bool showBar = false;
 
     for(int i=0;i<maxEvents;i++){
+
         //for(int i=825;i<826;i++){
         //cout<<"------------- Event="<<i<<"  -----------------"<<endl;
         resetOutBranches();
@@ -1265,6 +1672,16 @@ void OfflineFactory::readWaveData(){
         outputTreeContents.tEvtNum = tEvtNum;
         outputTreeContents.tRunNum = tRunNum;
         outputTreeContents.tTBEvent = tTBEvent;
+        findExtrema();
+
+        if (!isSlab && !isSim){ //temporary while slab has no lumi/good runs
+            getEventLumis();
+            setGoodRuns();
+        } 
+
+        if (outputTreeContents.event_time_fromTDC < firstTDC_time) firstTDC_time = outputTreeContents.event_time_fromTDC; 
+        if (outputTreeContents.event_time_fromTDC > lastTDC_time) lastTDC_time = outputTreeContents.event_time_fromTDC;
+
         outTree->Fill();
         //Totally necessary progress bar
         float progress = 1.0*i/maxEvents; 
@@ -1282,13 +1699,15 @@ void OfflineFactory::readWaveData(){
         }
         
     }
-    std::cout << std::endl;
+
+    setTotalLumi();
     
 }
 
 void OfflineFactory::writeOutputTree(){
     outFile->cd();
     outTree->Write();
+    if (writeTriggerMetaData) trigMetaDataCopy->Write();
     writeVersion();
     outFile->Close();
     if (inFile) inFile->Close();
@@ -1297,6 +1716,12 @@ void OfflineFactory::prepareWave(int ic){
     TAxis * a = waves[ic]->GetXaxis();
     // a->Set( a->GetNbins(), a->GetXmin()/sampleRate, a->GetXmax()/sampleRate);
     // waves[ic]->ResetStats();
+
+    //Measure the sideband before corrections
+    pair<float,float> mean_rms_raw = measureSideband(ic);
+    outputTreeContents.v_sideband_mean_raw.push_back(mean_rms_raw.first);
+    outputTreeContents.v_sideband_RMS_raw.push_back(mean_rms_raw.second);
+
     //subtract calibrated mean
     for(int ibin = 1; ibin <= waves[ic]->GetNbinsX(); ibin++){
         waves[ic]->SetBinContent(ibin,waves[ic]->GetBinContent(ibin)-pedestals[ic]);        
@@ -1305,7 +1730,7 @@ void OfflineFactory::prepareWave(int ic){
     //Get dynamical pedestal per channel in a particular event
     double pedestal_mV = 0.0; //Final pedestal correction to be applied
     float rms_variation_max = 4.0;
-    float pedestal_variation_max = 150.0;
+    float pedestal_variation_max = 80.0;
     TH1D * histTemp = new TH1D("temp","temp",1+int(pedestal_variation_max/dynamicPedestalGranularity+1E-3)*2,-pedestal_variation_max-dynamicPedestalGranularity/2,pedestal_variation_max+dynamicPedestalGranularity/2);
     //Iteratively check if the variation in amplitude is less than 4 mV within 16 consecutive samples. Use only first 1000ns (400 samples) to avoid trigger.
     for(int ibin = 1; ibin <= dynamicPedestalTotalSamples; ibin+=dynamicPedestalConsecutiveSamples){
@@ -1359,7 +1784,6 @@ pair<float,float> OfflineFactory::measureSideband(int ic){
 
 }
 vector< pair<float,float> > OfflineFactory::findPulses(int ic){
-
     vector<pair<float,float> > bounds;
     float tstart = sideband_range[1]+1;
     int istart = waves[ic]->FindBin(tstart);
@@ -1371,10 +1795,9 @@ vector< pair<float,float> > OfflineFactory::findPulses(int ic){
     //int i_begin = 0;
     int i_stop_searching = waves[ic]->GetNbinsX()-nConsecSamples[ic];
     int i_stop_final_pulse = waves[ic]->GetNbinsX();
-    //std::cout << "start: " << i_begin << ", stop: " << i_stop_searching << std::endl;
-
     for (int i=istart; i<i_stop_searching || (inpulse && i<i_stop_final_pulse); i++) {
         float v = waves[ic]->GetBinContent(i);
+
         if (!inpulse) {
             if (v<lowThresh[ic]) {   
                 nover = 0;     // If v dips below the low threshold, store the value of the sample index as i_begin
@@ -1399,7 +1822,6 @@ vector< pair<float,float> > OfflineFactory::findPulses(int ic){
             // If the nunder is above or equal to 12 (or we reach the end of the file) store the values of the pulse bounds
             if (nunder>=nConsecSamplesEnd[ic] || i==(i_stop_final_pulse-1)) { 
                 bounds.push_back({(float)waves[ic]->GetBinLowEdge(i_begin), (float)waves[ic]->GetBinLowEdge(i+1)-0.01});
-                // cout<<"i_begin, i: "<<i_begin<<" "<<i<<endl;       // i_begin is the 
                 inpulse = false;
                 nover = 0;
                 nunder = 0;
@@ -1411,7 +1833,7 @@ vector< pair<float,float> > OfflineFactory::findPulses(int ic){
 }
 //Pulse finding and per channel processing
 vector< pair<float,float> > OfflineFactory::processChannel(int ic){
-    prepareWave(ic);
+  prepareWave(ic); 
     //Pulse finding
     vector<pair<float,float>> pulseBounds = findPulses(ic);
     int npulses = pulseBounds.size();
@@ -1425,12 +1847,16 @@ vector< pair<float,float> > OfflineFactory::processChannel(int ic){
 
     }
     outputTreeContents.v_max.push_back(waves[ic]->GetMaximum());
+    outputTreeContents.v_maxPulseTime.push_back(waves[ic]->GetBinLowEdge(waves[ic]->GetMaximumBin()));
     outputTreeContents.v_max_threeConsec.push_back(maxThreeConsec);
     //FIXME Need to add low pass filter option back
     outputTreeContents.v_max_afterFilter.push_back(waves[ic]->GetMaximum());
     outputTreeContents.v_min_afterFilter.push_back(waves[ic]->GetMinimum());
     
     for(int ipulse = 0; ipulse<npulses; ipulse++){
+        std::pair<float, float> prePulse = getPrePulseVar(waves[ic], pulseBounds[ipulse].first);
+        outputTreeContents.v_prePulseMean.push_back(prePulse.first);
+        outputTreeContents.v_prePulseRMS.push_back(prePulse.second);
         waves[ic]->SetAxisRange(pulseBounds[ipulse].first,pulseBounds[ipulse].second);
         if (chanMap.size() > 0 and ic < chanMap.size()){
             outputTreeContents.v_column.push_back(chanMap[ic][0]);
@@ -1501,13 +1927,16 @@ vector< pair<float,float> > OfflineFactory::processChannel(int ic){
         outputTreeContents.v_fallSamples.push_back(above20-above80);
         outputTreeContents.v_time.push_back(pulseBounds[ipulse].first);
         outputTreeContents.v_timeFit.push_back(timeFit);
-        outputTreeContents.v_time_module_calibrated.push_back(pulseBounds[ipulse].first+timingCalibrations[ic]);
-        outputTreeContents.v_timeFit_module_calibrated.push_back(timeFit+timingCalibrations[ic]);
-        float area = waves[ic]->Integral();
+        outputTreeContents.v_time_module_calibrated.push_back(pulseBounds[ipulse].first+timingCalibrations[ic]+tdcCorrection[ic/16]);
+        outputTreeContents.v_timeFit_module_calibrated.push_back(timeFit+timingCalibrations[ic]+tdcCorrection[ic/16]);
+        float area = waves[ic]->Integral("width");
         outputTreeContents.v_area.push_back(area);
-        outputTreeContents.v_nPE.push_back((waves[ic]->Integral()/(speAreas[ic]))*(0.4/sampleRate));
+
+
+        outputTreeContents.v_nPE.push_back((waves[ic]->Integral("width")/(speAreas[ic]))*(0.4/sampleRate));
         outputTreeContents.v_ipulse.push_back(ipulse);
         outputTreeContents.v_npulses.push_back(npulses);
+        outputTreeContents.v_pulseIndex.push_back(totalPulseCount+ipulse);
         float duration = pulseBounds[ipulse].second - pulseBounds[ipulse].first;
         outputTreeContents.v_duration.push_back(duration);
         if(ipulse>0) outputTreeContents.v_delay.push_back(pulseBounds[ipulse].first - pulseBounds[ipulse-1].second);
@@ -1527,12 +1956,15 @@ vector< pair<float,float> > OfflineFactory::processChannel(int ic){
         outputTreeContents.v_pickupFlagTight.push_back(qual_tight);
     }
 
+    totalPulseCount += npulses;
+
     return pulseBounds;
 }
 
 void OfflineFactory::loadBranches(){
     if (!isDRS) {
         inTree->SetBranchAddress("event", &evt);
+        if (isSim) inTree->SetBranchAddress("eventWeight", &eventWeight);
         for(int ic=0;ic<numChan;ic++) waves.push_back(new TH1D());
     }
     else{
@@ -1555,10 +1987,14 @@ void OfflineFactory::loadWavesMilliDAQ(){
         //board = ic<=15 ? 0 : 1;
         board = boardArray->GetAt(ic);
         chan = chanArray->GetAt(ic);
+        // FIXME: Not grabbing waveforms for sim data correctly 
         waves[ic] = (TH1D*)evt->GetWaveform(board, chan, Form("digitizers[%i].waveform[%i]",board,ic));  
-    }
 
-}    
+        if (isSlab) waves[ic]->Scale(-1);
+    }
+}
+
+    
 // Need to add a separate loop here in the case we have DRS data
 
 void OfflineFactory::loadWavesDRS(){
@@ -1582,7 +2018,33 @@ void OfflineFactory::writeVersion(){
     if (triggerFileMatched) triggerString = "true";
     TNamed v2("triggerMatched_"+triggerString,"triggerMatched_"+triggerString);
     v2.Write();
+
+    TString goodRunName("goodRunList_"+goodRunTag);
+    TNamed v3(goodRunName, goodRunName);
+    v3.Write();
 }
 TString OfflineFactory::getVersion(){
     return versionLong;
+}
+
+void OfflineFactory::findExtrema(){
+    
+    //find the max pulse in a given layer and the index of the max pulse in event
+    outputTreeContents.v_iMaxPulseLayer = {-1, -1, -1, -1};
+    std::vector<float> v_maxPulseHeight = {-1, -1, -1, -1};
+    outputTreeContents.maxPulseIndex = 0;
+    float maxPulseHeight = -1;
+
+    for (int ipulse=0; ipulse < outputTreeContents.v_height.size(); ++ipulse){
+        if (outputTreeContents.v_layer[ipulse] < 0 || outputTreeContents.v_layer[ipulse] > 3) continue;
+        if (outputTreeContents.v_height[ipulse] > v_maxPulseHeight[outputTreeContents.v_layer[ipulse]]){
+            outputTreeContents.v_iMaxPulseLayer[outputTreeContents.v_layer[ipulse]] = ipulse;
+            v_maxPulseHeight[outputTreeContents.v_layer[ipulse]] = outputTreeContents.v_height[ipulse];
+        }
+        if (outputTreeContents.v_height[ipulse] > maxPulseHeight){
+            outputTreeContents.maxPulseIndex = ipulse;
+            maxPulseHeight = outputTreeContents.v_height[ipulse];
+        }
+    }
+
 }
