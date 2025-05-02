@@ -9,7 +9,7 @@ import mplhep as hep
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run", required=True, type=int)
+    parser.add_argument("--runs", required=True, nargs="*", default=[], type=int)
     parser.add_argument("--plot_var", required=True)
     parser.add_argument("--plot_range", required=True, help="e.g. 0-100")
     # Allow arbitrary many cuts in the format var:low-high
@@ -35,7 +35,7 @@ def fit(func, hist, fit_range):
     return popt, pcov, x_fit, y_fit
 
 
-def make_plot(run, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fit_func=gaussian):
+def make_plot(runs, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fit_func=gaussian):
     # parse the plot range
     rlow, rhigh = (float(x) for x in plot_range.split("_"))
 
@@ -57,9 +57,12 @@ def make_plot(run, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fit
     h = hist.Hist(
         hist.axis.Regular(80, rlow, rhigh, label=plot_var)
     )
-
+    run_list=[]
+    for run in runs:
+        if(run>=1105): run_list.append(f"/net/cms18/cms18r0/milliqan/Run3Offline/v36/slab/MilliQanSlab_Run{run}.*_v36.root:t")
+        else: run_list.append(f"/net/cms18/cms18r0/milliqan/Run3Offline/v35/slab/MilliQanSlab_Run{run}.*_v35.root:t")
     file_pattern = f"/net/cms18/cms18r0/milliqan/Run3Offline/v36/slab/MilliQanSlab_Run{run}.*_v36.root:t"
-    for branches in uproot.iterate(file_pattern, branches_needed, step_size=1000):
+    for branches in uproot.iterate(run_list, branches_needed, step_size=1000):
 
         # Start with a mask of “select everything”
         cut_mask = ak.ones_like(branches[plot_var], dtype=bool)
@@ -84,14 +87,14 @@ def make_plot(run, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fit
     plt.grid(True)
     plt.yscale('log')
     plt.ylabel('Number of Pulses')
-    plt.ylim(10,1000)
+    #plt.ylim(10,1000)
     plt.text(0.73,0.93,f"Run {run}", transform=plt.gca().transAxes)
     if 'chan' in locals(): plt.text(0.73,0.88,f"Channel {chan}",transform=plt.gca().transAxes)
     if do_fit:
         plt.text(0.73,0.83,rf'$\mu$={int(popt[1])}$\pm${int(np.sqrt(pcov[1][1]))}',transform=plt.gca().transAxes)
         plt.text(0.73,0.78,rf'$\sigma$={int(popt[2])}$\pm${int(np.sqrt(pcov[2][2]))}',transform=plt.gca().transAxes)
     if(plot_var == "height"): plt.xlabel("Pulse Height [mV]",loc='center')
-    if(plot_var == "area"): plt.xlabel("Pulse Area [nVs]",loc='center')
+    if(plot_var == "area"): plt.xlabel("Pulse Area [pVs]",loc='center')
     else: plt.xlabel(plot_var,loc='center')
     #plt.xlabel("Pulse Height [mV]",loc='center')
     plt.tight_layout()
@@ -99,5 +102,5 @@ def make_plot(run, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fit
 
 if __name__ == "__main__":
     args = parse_args()
-    make_plot(args.run, args.plot_var, args.plot_range, args.cuts, args.do_fit, args.fit_range)
+    make_plot(args.runs, args.plot_var, args.plot_range, args.cuts, args.do_fit, args.fit_range)
 

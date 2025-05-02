@@ -114,17 +114,17 @@ def add_all(straightLinePulses, chanmask, l0mask, dt_hists, time_2Dhists, dt_2Dh
 				layermask = straightLinePulses.layer == layer_
 				p0 = straightLinePulses[rowmask & colmask & chanmask & l0mask]
 				pL = straightLinePulses[rowmask & colmask & chanmask & layermask]
-				dt = p0.timeFit - pL.timeFit
-				#dt = ak.firsts(p0.timeFit) - ak.firsts(pL.timeFit)
+				dt = p0.timeFitCalib - pL.timeFitCalib
+				#dt = ak.firsts(p0.timeFitCalib) - ak.firsts(pL.timeFitCalib)
 				#dt = ak.drop_none(dt)
 				print(ak.ravel(dt))
 				dts.append(dt)
 				idx = k + 3*j + 9*i 
 				dt_hists[idx].fill(ak.ravel(dt))
-				both = len(ak.drop_none(ak.firsts(p0.timeFit))) == len(ak.drop_none(ak.firsts(pL.timeFit)))
+				both = len(ak.drop_none(ak.firsts(p0.timeFitCalib))) == len(ak.drop_none(ak.firsts(pL.timeFitCalib)))
 				#print(both)
-				time_2Dhists[idx].fill(ak.ravel(ak.drop_none(ak.firsts(p0.timeFit))), ak.ravel(ak.drop_none(ak.firsts(pL.timeFit))))
-				#if(both): time_2Dhists[idx].fill(ak.ravel(ak.drop_none(ak.firsts(p0.timeFit))), ak.ravel(ak.drop_none(ak.firsts(pL.timeFit))))
+				time_2Dhists[idx].fill(ak.ravel(ak.drop_none(ak.firsts(p0.timeFitCalib))), ak.ravel(ak.drop_none(ak.firsts(pL.timeFitCalib))))
+				#if(both): time_2Dhists[idx].fill(ak.ravel(ak.drop_none(ak.firsts(p0.timeFitCalib))), ak.ravel(ak.drop_none(ak.firsts(pL.timeFitCalib))))
 			dt_2Dhists[idx-2].fill(ak.ravel(dts[0]), ak.ravel(dts[1]))
 			dt_2Dhists[idx-1].fill(ak.ravel(dts[0]), ak.ravel(dts[2]))
 			dt_2Dhists[idx].fill(ak.ravel(dts[1]),ak.ravel(dts[2]))
@@ -197,7 +197,7 @@ def make_plot(runs, plot_var, plot_range, layer, row, col, chan_type, cuts, do_f
     branches_needed.append("layer")
     branches_needed.append("row")
     branches_needed.append("column")
-    branches_needed.append("timeFit")
+    branches_needed.append("timeFit_module_calibrated")
     branches_needed.append("chan")
     branches_needed.append("ipulse")
     branches_needed.append("event")
@@ -228,7 +228,7 @@ def make_plot(runs, plot_var, plot_range, layer, row, col, chan_type, cuts, do_f
 				"column": branches["column"],
 				"layer": branches["layer"],
 				"chan": branches["chan"],
-				"timeFit": branches["timeFit"],
+				"timeFitCalib": branches["timeFit_module_calibrated"],
 				"ipulse": branches["ipulse"],
 			}
 	)
@@ -236,17 +236,18 @@ def make_plot(runs, plot_var, plot_range, layer, row, col, chan_type, cuts, do_f
         fileNumber = branches["fileNumber"]
 
         #Correct for mismatched columns/rows if necessary
-        ch29_mask = (pulses.chan == 29)
-        ch29_corrected = ak.where(ch29_mask, pulses.column + 1, pulses.column)
-        pulses = ak.with_field(pulses, ch29_corrected, "column")
-        ch64_mask = (pulses.chan == 64)
-        ch64_corrected = ak.where(ch64_mask, pulses.row - 2, pulses.row)
-        pulses = ak.with_field(pulses, ch64_corrected, "row")
-        ch65_mask = (pulses.chan == 65)
-        ch65_corrected = ak.where(ch65_mask, pulses.row - 2, pulses.row)
-        pulses = ak.with_field(pulses, ch65_corrected, "row")
+        if(runs[0] < 1105):
+                ch29_mask = (pulses.chan == 29)
+                ch29_corrected = ak.where(ch29_mask, pulses.column + 1, pulses.column)
+                pulses = ak.with_field(pulses, ch29_corrected, "column")
+                ch64_mask = (pulses.chan == 64)
+                ch64_corrected = ak.where(ch64_mask, pulses.row - 2, pulses.row)
+                pulses = ak.with_field(pulses, ch64_corrected, "row")
+                ch65_mask = (pulses.chan == 65)
+                ch65_corrected = ak.where(ch65_mask, pulses.row - 2, pulses.row)
+                pulses = ak.with_field(pulses, ch65_corrected, "row")
 
-        cleaning_cuts = (pulses.height > 50) & (pulses.timeFit > 1000) & (pulses.timeFit < 1500) & (pulses.ipulse==0)#Start off with some cleaning cuts 
+        cleaning_cuts = (pulses.height > 50) & (pulses.timeFitCalib > 1000) & (pulses.timeFitCalib < 1500) & (pulses.ipulse==0)#Start off with some cleaning cuts 
         straightLineMask, straightLinePulses= straightLinePath_with_dt(pulses[cleaning_cuts], chan_type) #Returns pulses which are in a straight line 
 
         l0mask = straightLinePulses.layer == 0
@@ -266,14 +267,14 @@ def make_plot(runs, plot_var, plot_range, layer, row, col, chan_type, cuts, do_f
         p2 = straightLinePulses[l2mask & rowmask & colmask & chanmask]
         p3 = straightLinePulses[l3mask & rowmask & colmask & chanmask]
         if layer == 1:
-                dt = p0.timeFit - p1.timeFit
+                dt = p0.timeFitCalib - p1.timeFitCalib
                 print(dt)
                 arr_plot = dt
         if layer == 2:
-                dt = p0.timeFit - p2.timeFit
+                dt = p0.timeFitCalib - p2.timeFitCalib
                 arr_plot = dt
         if layer == 3:
-                dt = p0.timeFit - p3.timeFit
+                dt = p0.timeFitCalib - p3.timeFitCalib
                 arr_plot = dt
                 #print(ak.to_list(dt))
         # Start with a mask of “select everything”
@@ -287,10 +288,10 @@ def make_plot(runs, plot_var, plot_range, layer, row, col, chan_type, cuts, do_f
         #print(fileNumber[ak.any(straightLineMask[(l1mask & rowmask & colmask & chanmask)],axis=1)], events[ak.any(straightLineMask[(l1mask & rowmask & colmask & chanmask)],axis=1)], dt)
         h.fill(ak.ravel(arr_plot)) 
 
-    savedir = "dt_plots_beamOn"
+    savedir = f"dt_plots_beamOff/run{runs[0]}"
     outfile = f"dt_hists_run{runs[0]}_chantype{chan_type}.root"
     if(save_all): 
-        draw_all(dt_hists, runs, chan_type, save_dir)
+        draw_all(dt_hists, runs, chan_type, savedir)
         #with uproot.recreate(outfile) as outfile:
         #        write_to_root(outfile, runs, dt_hists, 0, chan_type)
         #        write_to_root(outfile, runs, time_2Dhists, 1, chan_type)

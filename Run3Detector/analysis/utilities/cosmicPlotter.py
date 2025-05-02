@@ -34,14 +34,6 @@ def fit(func, hist, fit_range):
     y_fit=gaussian(x_fit,*popt)
     return popt, pcov, x_fit, y_fit
 
-def slopes(pulse1, pulse2):
-	#By convention pulse 1 should always be of a higher layer than pulse 2
-	#All lengths in cm
-	#Slabs are 40x60cm, ~65cm vertical between layers, ~95cm offset between fronts of two consecutive layers
-	inv_z_slope = (60*(pulse1.row - pulse2.row) + 95*(pulse1.layer-pulse2.layer)) / (65*(pulse1.layer - pulse2.layer))
-	inv_y_slope = (40*(pulse1.column - pulse2.column)) / (65 * (pulse1.layer - pulse2.layer)) 
-	return inv_z_slope, inv_y_slope #Returns 1/slope
-
 def straightLinePath(pulses):  #NOTE: as of now this function returns 4 hits in a row but includes all after pulses and also includes multiple paths if any exist
 	local_index = ak.local_index(pulses)
 
@@ -95,33 +87,6 @@ def straightLinePath(pulses):  #NOTE: as of now this function returns 4 hits in 
 	l1l3_timeMask = np.abs(l1l3_l1half.time - l1l3_l3half.time) < 400
 	l2l3_timeMask = np.abs(l2l3_l2half.time - l2l3_l3half.time) < 400
 
-	l0l1_inv_z_slope, l0l1_inv_y_slope = slopes(l0l1_l1half,l0l1_l0half)
-	l0l2_inv_z_slope, l0l2_inv_y_slope = slopes(l0l2_l2half,l0l2_l0half)
-	l0l3_inv_z_slope, l0l3_inv_y_slope = slopes(l0l3_l3half,l0l3_l0half)
-	l1l2_inv_z_slope, l1l2_inv_y_slope = slopes(l1l2_l2half,l1l2_l1half)
-	l1l3_inv_z_slope, l1l3_inv_y_slope = slopes(l1l3_l3half,l1l3_l1half)
-	l2l3_inv_z_slope, l2l3_inv_y_slope = slopes(l2l3_l3half,l2l3_l2half)
-
-	#2.38 is the maximum inverse z slope a throughgoing muon can have through both layer 0 and 3
-	#0.538 is the minimum """
-	#|0.4102| is the abs of the max inverse y slope a throughgoing muon can have through both layers 0 and 3
-	#0.0 is the smallest inverse slope in y for a throughgoing muon 
-
-	l0l1_zSlopeMask = (l0l1_inv_z_slope <= 2.5) & (l0l1_inv_z_slope >= 0.5)
-	l0l2_zSlopeMask = (l0l2_inv_z_slope <= 2.5) & (l0l2_inv_z_slope >= 0.5)
-	l0l3_zSlopeMask = (l0l3_inv_z_slope <= 2.5) & (l0l3_inv_z_slope >= 0.5)
-	l1l2_zSlopeMask = (l1l2_inv_z_slope <= 2.5) & (l1l2_inv_z_slope >= 0.5)
-	l1l3_zSlopeMask = (l1l3_inv_z_slope <= 2.5) & (l1l3_inv_z_slope >= 0.5)
-	l2l3_zSlopeMask = (l2l3_inv_z_slope <= 2.5) & (l2l3_inv_z_slope >= 0.5)
-
-	l0l1_ySlopeMask = np.abs(l0l1_inv_y_slope) <= 0.42
-	l0l2_ySlopeMask = np.abs(l0l2_inv_y_slope) <= 0.42
-	l0l3_ySlopeMask = np.abs(l0l3_inv_y_slope) <= 0.42
-	l1l2_ySlopeMask = np.abs(l1l2_inv_y_slope) <= 0.42
-	l1l3_ySlopeMask = np.abs(l1l3_inv_y_slope) <= 0.42
-	l2l3_ySlopeMask = np.abs(l2l3_inv_y_slope) <= 0.42
-
-
 	l0l1_rowMask = l0l1_l0half.row == l0l1_l1half.row
 	l0l2_rowMask = l0l2_l0half.row == l0l2_l2half.row
 	l0l3_rowMask = l0l3_l0half.row == l0l3_l3half.row
@@ -136,12 +101,12 @@ def straightLinePath(pulses):  #NOTE: as of now this function returns 4 hits in 
 	l1l3_colMask = l1l3_l1half.column == l1l3_l3half.column
 	l2l3_colMask = l2l3_l2half.column == l2l3_l3half.column
 
-	l0l1pointingMask = l0l1_timeMask & l0l1_zSlopeMask & l0l1_ySlopeMask #& l0l1_colMask & l0l1_rowMask 
-	l0l2pointingMask = l0l2_timeMask & l0l2_zSlopeMask & l0l2_ySlopeMask #& l0l2_colMask & l0l2_rowMask 
-	l0l3pointingMask = l0l3_timeMask & l0l3_zSlopeMask & l0l3_ySlopeMask #& l0l3_colMask & l0l3_rowMask
-	l1l2pointingMask = l1l2_timeMask & l1l2_zSlopeMask & l1l2_ySlopeMask #& l1l2_colMask & l1l2_rowMask
-	l1l3pointingMask = l1l3_timeMask & l1l3_zSlopeMask & l1l3_ySlopeMask #& l1l3_colMask & l1l3_rowMask
-	l2l3pointingMask = l2l3_timeMask & l2l3_zSlopeMask & l2l3_ySlopeMask #& l2l3_colMask & l2l3_rowMask
+	l0l1pointingMask = l0l1_colMask & l0l1_rowMask & l0l1_timeMask
+	l0l2pointingMask = l0l2_colMask & l0l2_rowMask & l0l2_timeMask
+	l0l3pointingMask = l0l3_colMask & l0l3_rowMask & l0l3_timeMask
+	l1l2pointingMask = l1l2_colMask & l1l2_rowMask & l1l2_timeMask
+	l1l3pointingMask = l1l3_colMask & l1l3_rowMask & l1l3_timeMask
+	l2l3pointingMask = l2l3_colMask & l2l3_rowMask & l2l3_timeMask
 
 	l0_common_indices = ak.Array([
 	    np.intersect1d(np.intersect1d(l0l1, l0l2), l0l3)
@@ -226,8 +191,7 @@ def make_plot(runs, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fi
 
     run_list = []
     for run in runs:
-	    if(run>=1105): run_list.append(f"/net/cms18/cms18r0/milliqan/Run3Offline/v36/slab/MilliQanSlab_Run{run}.*_v36.root:t")
-	    else: run_list.append(f"/net/cms18/cms18r0/milliqan/Run3Offline/v35/slab/MilliQanSlab_Run{run}.*_v35.root:t")
+	    run_list.append(f"/net/cms18/cms18r0/milliqan/Run3Offline/v36/slab/MilliQanSlab_Run{run}.*_v36.root:t")
 
 
     for branches in uproot.iterate(run_list, branches_needed, step_size=1000):
@@ -245,13 +209,12 @@ def make_plot(runs, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fi
 			}
 	)
 
-        cleaning_cuts = (pulses.height > 800) #& (pulses.time > 1000) & (pulses.time < 1500)#Start off with some cleaning cuts that select for cosmics and reduce combinatorics later
-        straightLinePulses = straightLinePath(pulses[cleaning_cuts]) #Returns pulses which are in a straight line within some time of each other in each layer
+        straightLinePulses = straightLinePath(pulses)
 
         # Start with a mask of “select everything”
         cut_mask = ak.ones_like(straightLinePulses[plot_var], dtype=bool)
 
-        # apply additional cuts
+        # apply each cut
         for (cutvar, cut_low, cut_high) in cut_specs:
             cut_mask = cut_mask & ((straightLinePulses[cutvar] >= cut_low) & (straightLinePulses[cutvar] <= cut_high))
 
@@ -271,15 +234,13 @@ def make_plot(runs, plot_var, plot_range, cuts, do_fit=False, fit_range=None, fi
     plt.grid(True)
     plt.yscale('log')
     plt.ylabel('Number of Pulses')
-    if len(runs) > 1: plt.text(0.63,0.93,f"Runs {runs[0]}-{runs[-1]}", transform=plt.gca().transAxes)
-    else: plt.text(0.73,0.93,f"Run {runs[0]}", transform=plt.gca().transAxes)
+    plt.text(0.73,0.93,f"Run {run}", transform=plt.gca().transAxes)
     if 'chan' in locals(): plt.text(0.73,0.88,f"Channel {chan}",transform=plt.gca().transAxes)
     if do_fit:
         plt.text(0.73,0.83,rf'$\mu$={round(popt[1],1)}',transform=plt.gca().transAxes)
         plt.text(0.73,0.78,rf'$\sigma$={round(popt[2],1)}',transform=plt.gca().transAxes)
-    if(plot_var == "height"): plt.xlabel("Pulse Height [mV]",loc='center')
-    if(plot_var == "area"): plt.xlabel("Pulse Area [pVs]",loc='center')
-    else: plt.xlabel(plot_var,loc='center')
+    plt.xlabel(plot_var,loc='center')
+    #plt.xlabel("Pulse Height [mV]",loc='center')
     plt.tight_layout()
     plt.show()
 

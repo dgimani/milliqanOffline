@@ -262,7 +262,7 @@ def make_plot(runs, layer, plot_var, plot_range, cuts, do_fit=False, fit_range=N
 			}
 	)
 
-        cleaning_cuts = (pulses.height > 15) #& (pulses.time > 1000) & (pulses.time < 1500)#Start off with some cleaning cuts that select for cosmics and reduce combinatorics later
+        cleaning_cuts = (pulses.height > 25) & (pulses.time > 1000) & (pulses.time < 1500) & (pulses.ipulse == 0)#Start off with some cleaning cuts that select for cosmics and reduce combinatorics later
         straightLinePulses = straightLinePath(pulses[cleaning_cuts]) #Returns pulses which are in a straight line within some time of each other in each layer
 
         # Start with a mask of “select everything”
